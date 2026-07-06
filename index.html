@@ -80,11 +80,11 @@
     </div>
     <div class=${"fl-detail"+(a?" open":"")}>${flightDetail(e).map(([t,e],a)=>html`<div class="w" key=${a}>
       <div class="k">${t}</div><div>${e}</div></div>`)}</div>
-  </${Fragment}>`}function FlightLog({flights:e,expanded:a}){const n=[...e].sort((t,e)=>e.date<t.date?-1:e.date>t.date?1:0),r=a?n:n.slice(0,10);return html`<section class="card">
+  </${Fragment}>`}function FlightLog({flights:e,expanded:a}){const n=t=>t.date+(t.times.gateDepSched||""),r=[...e].sort((t,e)=>{const a=n(t),r=n(e);return r<a?-1:r>a?1:0}),i=a?r:r.slice(0,10);return html`<section class="card">
     <h2><span>${t("hList")}</span> <small>${t("listHint")}</small></h2>
-    <div id="flightList">${r.map(t=>html`<${FlightRow} key=${flightKey(t)} f=${t}/>`)}</div>
-    ${n.length>10&&!a?html`<div class="fl-more">
-      <button type="button" onClick=${()=>{STATE.listExpanded=!0,renderWidgets()}}>${t("showAllN",n.length)}</button></div>`:null}
+    <div id="flightList">${i.map(t=>html`<${FlightRow} key=${flightKey(t)} f=${t}/>`)}</div>
+    ${r.length>10&&!a?html`<div class="fl-more">
+      <button type="button" onClick=${()=>{STATE.listExpanded=!0,renderWidgets()}}>${t("showAllN",r.length)}</button></div>`:null}
   </section>`}function Footer({st:e}){const a=STATE.fromStorage?t("srcStorage"):STATE.fromDemo?t("srcDemo"):t("srcBuiltin");return html`<footer>
     ${e.unknownAirports.size?html`<div class="warn-apt">${t("footUnknown",[...e.unknownAirports].sort().join("、"))}</div>`:null}
     <div>${t("footEst")}</div>
