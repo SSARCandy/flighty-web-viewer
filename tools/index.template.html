@@ -93,6 +93,9 @@ a{color:var(--accent)}
 #btnTheme,#btnLang{background:none;border:1px solid var(--line);border-radius:10px;width:38px;height:37px;cursor:pointer;line-height:1;padding:0;color:var(--ink2)}
 #btnTheme:hover,#btnLang:hover{border-color:var(--accent);color:var(--accent)}
 #btnLang{font-size:12.5px;font-weight:700;font-family:inherit;letter-spacing:.3px}
+#btnShareMap{background:none;border:1px solid var(--line);border-radius:10px;padding:9px 14px;font-size:13px;color:var(--ink2);cursor:pointer;display:flex;gap:6px;align-items:center;transition:background .15s,border-color .15s;font-weight:600}
+#btnShareMap:hover{background:var(--hover);border-color:var(--accent);color:var(--ink)}
+#btnShareMap .ico{color:var(--accent);width:16px;height:16px;margin:0}
 #errBanner{
   background:rgba(255,107,107,.09);border:1px solid rgba(255,107,107,.35);
   color:var(--bad);border-radius:var(--radius);padding:12px 16px;font-size:13px;margin-bottom:16px;
@@ -288,8 +291,12 @@ footer .warn-apt{color:var(--warn)}
     <div class="actions">
       <button id="btnLang" type="button" aria-label="Switch language">EN</button>
       <button id="btnTheme" type="button" aria-label="切換深淺色主題"></button>
-      <button id="dropzone" type="button" aria-label="更新資料：拖曳 Flighty CSV 到頁面任意處，或點擊選擇檔案">
-        <svg class="mi ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 16h6v-6h4l-7-7-7 7h4v6zm-4 2h14v2H5v-2z"/></svg> <span id="dropzoneText">更新資料 — 拖入或點選 CSV</span>
+      <button id="btnShareMap" type="button" title="分享為圖" aria-label="分享為圖">
+        <svg class="mi ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92 1.61 0 2.92-1.31 2.92-2.92s-1.31-2.92-2.92-2.92z"/></svg>
+        <span id="btnShareMapText">分享</span>
+      </button>
+      <button id="dropzone" type="button" aria-label="上傳資料：拖曳 Flighty CSV 到頁面任意處，或點擊選擇檔案">
+        <svg class="mi ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 16h6v-6h4l-7-7-7 7h4v6zm-4 2h14v2H5v-2z"/></svg> <span id="dropzoneText">上傳資料 — 拖入或點選 CSV</span>
       </button>
       <button id="btnReset" type="button" hidden>還原內建資料</button>
       <input id="fileInput" type="file" accept=".csv,text/csv,text/plain" hidden>
@@ -720,7 +727,7 @@ let STATE={flights:[],stats:null,fromStorage:false,fromDemo:false,listExpanded:f
 // ---- 中英文字典 ----
 const I18N={
 zh:{
-  dropzone:'更新資料 — 拖入或點選 CSV',dropOverlay:'放開以載入 CSV',btnReset:'還原預設資料',
+  dropzone:'上傳資料 — 拖入或點選 CSV',dropOverlay:'放開以載入 CSV',btnReset:'還原預設資料',
   loaded:(n,a,b)=>`已載入 ${n} 筆（${a} 至 ${b}）`,upcomingN:n=>` · 含 ${n} 筆即將出發`,
   filterInfo:(y,n)=>` ｜ 篩選 ${y} 年：${n} 筆`,allYears:'全部年份',
   legendRoute:'航線（次數越多越亮越粗）',legendApt:'機場（大小＝起降次數）',
@@ -752,10 +759,10 @@ zh:{
   errHeader:m=>`CSV 表頭不符：缺少必要欄位 ${m}。`,errDetected:h=>` 偵測到的表頭：${h}`,errNone:'（無）',
   errSkipped:n=>`已載入，但有 ${n} 列資料不完整（缺日期／機場／航空公司）已略過。`,errRead:'讀取檔案失敗。',
   pbDone:n=>`播放完畢 · 共 ${n} 段航程`,
-  titlePlay:'播放航跡（依時間順序）',titleSpeed:'播放速度',titleZoomIn:'放大',titleZoomOut:'縮小',titleZoomReset:'重設視角',titleTheme:'切換深淺色主題',
+  titlePlay:'播放航跡（依時間順序）',titleSpeed:'播放速度',titleZoomIn:'放大',titleZoomOut:'縮小',titleZoomReset:'重設視角',titleTheme:'切換深淺色主題',titleShareMap:'分享為圖',
 },
 en:{
-  dropzone:'Update data — drop or select CSV',dropOverlay:'Drop to load CSV',btnReset:'Restore default data',
+  dropzone:'Upload data — drop or select CSV',dropOverlay:'Drop to load CSV',btnReset:'Restore default data',
   loaded:(n,a,b)=>`${n} flights loaded (${a} – ${b})`,upcomingN:n=>` · ${n} upcoming`,
   filterInfo:(y,n)=>` | ${y}: ${n} flights`,allYears:'All years',
   legendRoute:'Routes (more flights = brighter & thicker)',legendApt:'Airports (size = visits)',
@@ -787,7 +794,7 @@ en:{
   errHeader:m=>`CSV header mismatch: missing required columns ${m}.`,errDetected:h=>` Detected headers: ${h}`,errNone:'(none)',
   errSkipped:n=>`Loaded, but ${n} incomplete rows (missing date/airport/airline) were skipped.`,errRead:'Failed to read file.',
   pbDone:n=>`Done · ${n} flights`,
-  titlePlay:'Play flight history (chronological)',titleSpeed:'Playback speed',titleZoomIn:'Zoom in',titleZoomOut:'Zoom out',titleZoomReset:'Reset view',titleTheme:'Toggle dark/light theme',
+  titlePlay:'Play flight history (chronological)',titleSpeed:'Playback speed',titleZoomIn:'Zoom in',titleZoomOut:'Zoom out',titleZoomReset:'Reset view',titleTheme:'Toggle dark/light theme',titleShareMap:'Share as image',
 }
 };
 function t(key,...a){
@@ -798,6 +805,7 @@ function applyLang(){
   document.documentElement.lang=STATE.lang==='zh'?'zh-Hant':'en';
   $('#btnLang').textContent=STATE.lang==='zh'?'EN':'中';
   $('#dropzoneText').textContent=t('dropzone');
+  $('#btnShareMapText').textContent=t('titleShareMap');
   $('#dropOverlayText').textContent=t('dropOverlay');
   $('#btnReset').textContent=t('btnReset');
   $('#legendRoute').textContent=t('legendRoute');
@@ -809,6 +817,7 @@ function applyLang(){
   $('#btnPlay').title=t('titlePlay');$('#btnSpeed').title=t('titleSpeed');
   $('#btnZoomIn').title=t('titleZoomIn');$('#btnZoomOut').title=t('titleZoomOut');
   $('#btnZoomReset').title=t('titleZoomReset');$('#btnTheme').title=t('titleTheme');
+  $('#btnShareMap').title=t('titleShareMap');
 }
 function getFiltered(){
   return STATE.yearFilter===null?STATE.flights
@@ -899,7 +908,166 @@ mapSvg.addEventListener('dblclick',e=>zoomAt(e.clientX,e.clientY,0.55));
 const mapCenter=()=>{const r=mapSvg.getBoundingClientRect();return [r.left+r.width/2,r.top+r.height/2];};
 $('#btnZoomIn').addEventListener('click',()=>{const c=mapCenter();zoomAt(c[0],c[1],0.72);});
 $('#btnZoomOut').addEventListener('click',()=>{const c=mapCenter();zoomAt(c[0],c[1],1/0.72);});
-$('#btnZoomReset').addEventListener('click',()=>setVB(MV.base.slice()));
+$('#btnZoomReset').addEventListener('click',()=>setVB(MV.fit ? MV.fit.slice() : MV.base.slice()));
+
+$('#btnShareMap').addEventListener('click', () => {
+  const isDark = document.documentElement.getAttribute('data-theme') !== 'light';
+  const rootStyle = getComputedStyle(document.body);
+  const bgColor = rootStyle.getPropertyValue('--bg').trim() || (isDark ? '#060a14' : '#edf1f8');
+  const inkColor = rootStyle.getPropertyValue('--ink').trim();
+  const st = STATE.stats;
+  
+  const hTotal = Math.round(st.hours);
+  const dy = Math.floor(hTotal / 24);
+  const hr = hTotal % 24;
+  const timeArr = [];
+  const dyUnit = STATE.lang === 'zh' ? ' 天 ' : ' days ';
+  const hrUnit = STATE.lang === 'zh' ? ' 小時' : ' hours';
+  if (dy > 0) timeArr.push(dy + dyUnit);
+  if (hr > 0 || timeArr.length === 0) timeArr.push(hr + hrUnit);
+  const timeStr = timeArr.join('').trim();
+
+  const l1 = t('tFlights') + ': ';
+  const v1 = fmtInt(st.total);
+  const sep = '   ·   ';
+  const l2 = t('tDist') + ': ';
+  const v2 = fmtInt(Math.round(st.distanceKm)) + ' km';
+  const l3 = t('tHours') + ': ';
+  const v3 = timeStr;
+  
+  const ccCount = new Map();
+  for(const [iata,cnt] of st.airportCount){
+    const A=AIRPORTS[iata];if(!A)continue;
+    ccCount.set(A[4],(ccCount.get(A[4])||0)+cnt);
+  }
+  const ccs = [...ccCount.entries()].sort((a,b)=>b[1]-a[1]).map(x=>x[0]);
+  
+  const mapW = 1000;
+  const H = 600;
+  
+  let flagSize = 24;
+  let gapX = 4;
+  let gapY = 6;
+  let maxFlagsPerRow = Math.floor(940 / (flagSize + gapX));
+  let totalRows = Math.ceil(ccs.length / maxFlagsPerRow);
+  let flagsH = ccs.length > 0 ? totalRows * flagSize + (totalRows - 1) * gapY : 0;
+  
+  while (flagsH > 180 && flagSize > 12) {
+    flagSize -= 2;
+    gapX = Math.max(2, gapX - 1);
+    gapY = Math.max(3, gapY - 1);
+    maxFlagsPerRow = Math.floor(940 / (flagSize + gapX));
+    totalRows = Math.ceil(ccs.length / maxFlagsPerRow);
+    flagsH = ccs.length > 0 ? totalRows * flagSize + (totalRows - 1) * gapY : 0;
+  }
+  
+  const textStartY = H - 50;
+  
+  const mapY = 0;
+  const mapH = textStartY;
+
+  const flagStartY = textStartY - 30 - flagsH;
+
+  const flagsOverlayH = textStartY - flagStartY;
+  const targetAspect = (mapH - flagsOverlayH) / mapW;
+  const currentAspect = MV.vb[3] / MV.vb[2];
+  let [vbX, vbY, vbW, vbH] = MV.vb;
+  
+  if (currentAspect > targetAspect) {
+    const newW = vbH / targetAspect;
+    vbX -= (newW - vbW) / 2;
+    vbW = newW;
+  } else {
+    const newH = vbW * targetAspect;
+    vbY -= (newH - vbH) / 2;
+    vbH = newH;
+  }
+  const totalVbH = vbH * (mapH / (mapH - flagsOverlayH));
+  const newVbStr = `${vbX.toFixed(2)} ${vbY.toFixed(2)} ${vbW.toFixed(2)} ${totalVbH.toFixed(2)}`;
+  
+  let flagsSvgStr = '';
+  if (ccs.length > 0) {
+    ccs.forEach((cc, i) => {
+      const row = Math.floor(i / maxFlagsPerRow);
+      const col = i % maxFlagsPerRow;
+      const numInThisRow = Math.min(ccs.length - row * maxFlagsPerRow, maxFlagsPerRow);
+      const rowWidth = numInThisRow * flagSize + (numInThisRow - 1) * gapX;
+      const curX = (1000 - rowWidth) / 2 + col * (flagSize + gapX);
+      const curY = flagStartY + row * (flagSize + gapY);
+      
+      const span = flagEl(cc);
+      const svg = span.querySelector('svg');
+      if (svg) {
+        svg.removeAttribute('width');
+        svg.removeAttribute('height');
+        svg.setAttribute('width', '100%');
+        svg.setAttribute('height', '100%');
+        flagsSvgStr += `
+        <svg x="${curX}" y="${curY}" width="${flagSize}" height="${flagSize}">
+          <clipPath id="fc_${cc}"><circle cx="${flagSize/2}" cy="${flagSize/2}" r="${flagSize/2}"/></clipPath>
+          <g clip-path="url(#fc_${cc})">
+            ${svg.outerHTML}
+          </g>
+          <circle cx="${flagSize/2}" cy="${flagSize/2}" r="${flagSize/2 - 0.5}" fill="none" stroke="var(--ring)" stroke-width="1"/>
+        </svg>`;
+      }
+    });
+  }
+  
+  const sepTspan = `<tspan font-weight="300" opacity="0.5">${sep}</tspan>`;
+  let dataSvgStr = `<text x="500" y="${textStartY + 20}" text-anchor="middle" font-size="20" fill="${inkColor}">` +
+    `<tspan font-weight="400">${l1}</tspan><tspan font-weight="700">${v1}</tspan>` +
+    sepTspan +
+    `<tspan font-weight="400">${l2}</tspan><tspan font-weight="700">${v2}</tspan>` +
+    sepTspan +
+    `<tspan font-weight="400">${l3}</tspan><tspan font-weight="700">${v3}</tspan>` +
+  `</text>\n  `;
+
+  const themeAttr = isDark ? '' : 'data-theme="light"';
+  const styles = document.querySelector('style').textContent;
+  const mapContent = $('#map').innerHTML;
+  
+  const fullSvg = `<svg xmlns="${SVG_NS}" width="1000" height="${H}" viewBox="0 0 1000 ${H}" ${themeAttr}>
+  <style>
+    <![CDATA[
+    ${styles}
+    text { font-family: system-ui, -apple-system, "Segoe UI", "Noto Sans TC", sans-serif; }
+    ]]>
+  </style>
+  <rect width="1000" height="${H}" fill="${bgColor}"/>
+  <svg id="map" x="0" y="${mapY}" width="${mapW}" height="${mapH}" viewBox="${newVbStr}">
+    ${mapContent}
+  </svg>
+  ${dataSvgStr}
+  ${flagsSvgStr}
+</svg>`.trim();
+
+  const svgBlob = new Blob([fullSvg], {type: 'image/svg+xml;charset=utf-8'});
+  const url = URL.createObjectURL(svgBlob);
+  const img = new Image();
+  img.onload = () => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 1000;
+    canvas.height = H;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = bgColor;
+    ctx.fillRect(0, 0, 1000, H);
+    ctx.drawImage(img, 0, 0, 1000, H);
+    URL.revokeObjectURL(url);
+    canvas.toBlob(blob => {
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `flighty_map_${new Date().toISOString().slice(0,10)}.png`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    }, 'image/png');
+  };
+  img.onerror = (err) => {
+    console.error('SVG Render Error', err, fullSvg);
+    alert('產生圖片失敗！請查看 Console。');
+  };
+  img.src = url;
+});
 
 function renderMap(st){
   stopPlayback();
@@ -997,6 +1165,7 @@ function renderMap(st){
     gA.appendChild(c);
   }
   svg.appendChild(gR);svg.appendChild(gA);
+  MV.fit = initVb.slice();
   setVB(initVb);
 }
 let rsTimer=null;
