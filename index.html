@@ -232,6 +232,10 @@ section{margin-bottom:16px}
 .fl-row .bdg{display:flex;gap:6px;flex:none;margin-left:auto}
 /* 手機：卡片式排版（logo｜航線＋城市＋日期航班機型｜延誤標記） */
 @media(max-width:620px){
+  .topbar { flex-direction: column; align-items: stretch; gap: 16px; margin-bottom: 24px; }
+  .actions { display: grid; grid-template-columns: auto auto 1fr; gap: 8px; width: 100%; }
+  #btnShareMap { justify-content: center; }
+  #dropzone, #btnReset { grid-column: 1 / -1; justify-content: center; text-align: center; }
   .fl-row{
     display:grid;grid-template-columns:auto 1fr auto;gap:1px 12px;align-items:center;
     background:var(--card2);border:none;border-radius:12px;margin-bottom:8px;padding:11px 13px;
@@ -1285,17 +1289,6 @@ function renderMap(st){
     const by=h<=397?Math.min(Math.max((y0+y1)/2-h/2,25),422-h):(MAP_H-h)/2;
     vb=[bx,by,w,h];
     initVb=vb.slice();
-    // 手機：預設聚焦資料重心的窄視窗（同比例，可平移/縮小看全部）
-    if(rw<560&&aptGeoms.length){
-      const w2=dataH/R;
-      if(w2<w-10){
-        let tot=0,cx=0;
-        for(const g of aptGeoms){tot+=g.cnt;cx+=g.x*g.cnt;}
-        cx/=tot||1;
-        const ix=Math.min(Math.max(cx-w2/2,x0),Math.max(x0,x1-w2));
-        initVb=[ix,y0,w2,dataH];
-      }
-    }
   }
   const maxRoute=Math.max(1,...st.routes.values());
   const gR=mk('g',{class:'routes-static'});const gA=mk('g',{});
