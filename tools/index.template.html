@@ -139,7 +139,9 @@ section{margin-bottom:16px}
 #map .apt{fill:var(--aptdot);cursor:pointer}
 #map .apt-glow{fill:var(--accent);opacity:.30;pointer-events:none}
 #map .route-hit:hover+g .route,#map .apt:hover{filter:brightness(1.35)}
-#map circle:focus-visible,#map path:focus-visible{outline:none;stroke:#fff;stroke-width:1}
+#map circle:focus,#map path:focus{outline:none}
+#map .apt:focus-visible{stroke:#fff;stroke-width:1}
+#map .route-hit:focus-visible{stroke-opacity:.15}
 
 /* ---------- flags & airline logos ---------- */
 .iconrow{display:flex;flex-wrap:wrap;gap:5px;margin-top:9px;align-items:center}
