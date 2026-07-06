@@ -11,7 +11,7 @@ const datasets = fs.readFileSync(path.join(SCRATCH, 'datasets.gen.js'), 'utf8');
 const airlines = fs.readFileSync(path.join(SCRATCH, 'airlines.js'), 'utf8');
 const flags = fs.readFileSync(path.join(SCRATCH, 'flags.gen.js'), 'utf8');
 const logos = fs.readFileSync(path.join(SCRATCH, 'logos.gen.js'), 'utf8');
-let csv = fs.readFileSync(path.join(REPO, 'FlightyExport-2026-07-05.csv'), 'utf8');
+let csv = fs.readFileSync(path.join(REPO, 'demo.csv'), 'utf8');
 if (csv.charCodeAt(0) === 0xFEFF) csv = csv.slice(1); // strip BOM
 
 // JSON-encode CSV; escape "</script" so it can't terminate the script block

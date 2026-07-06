@@ -23,11 +23,11 @@ Flighty CSV 拖進網頁即可。這個資料夾只在你想「重建 index.html
 
 ```sh
 cd tools
-node build.js   # 讀取 ../FlightyExport-2026-07-05.csv，輸出 ../index.html
+node build.js   # 讀取 ../demo.csv 作為內嵌預設資料，輸出 ../index.html
 node test.js    # 驗證
 ```
 
-- 要換內建預設資料：把新 CSV 放到專案根目錄，改 `build.js` 裡的檔名後重建。
+- 內嵌預設資料即 `demo.csv`（部署時頁面也會 fetch 它，換檔即可更新線上資料，無需重建）。
   （`test.js` 內的基準數字是針對 2026-07-05 那份 66 筆資料，換資料後需自行更新。）
 - 要更新機場資料庫：下載以下檔案到本資料夾後執行 `node gen.js`：
   - https://davidmegginson.github.io/ourairports-data/airports.csv

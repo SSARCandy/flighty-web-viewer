@@ -6,7 +6,7 @@ const REPO = 'C:/Users/ssarc/Documents/GitHub/flighty-web-viewer';
 const html = fs.readFileSync(REPO + '/index.html', 'utf8');
 const logic = html.split('/*__LOGIC_START__*/')[1].split('/*__LOGIC_END__*/')[0];
 const datasets = fs.readFileSync(__dirname + '/datasets.gen.js', 'utf8');
-let csv = fs.readFileSync(REPO + '/FlightyExport-2026-07-05.csv', 'utf8');
+let csv = fs.readFileSync(REPO + '/demo.csv', 'utf8');
 if (csv.charCodeAt(0) === 0xFEFF) csv = csv.slice(1);
 
 const ctx = { console, Date, Math, JSON };
