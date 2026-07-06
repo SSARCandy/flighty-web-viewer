@@ -3,7 +3,7 @@
 A single-file web viewer for [Flighty](https://flighty.com) CSV exports — a Flighty-style personal flight log for the web.
 單一 HTML 檔的 Flighty 個人飛行紀錄檢視器：世界地圖航線圖、統計儀表板、排行榜、準點分析與航班列表。
 
-**Live**: https://ssarcandy.github.io/flighty-web-viewer/
+**Live**: https://ssarcandy.tw/flighty-web-viewer/
 
 ## Features
 
