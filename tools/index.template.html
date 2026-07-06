@@ -904,12 +904,21 @@ $('#btnShareMap').addEventListener('click', () => {
   const l3 = t('tHours') + ': ';
   const v3 = timeStr;
   
-  const ccCount = new Map();
-  for(const [iata,cnt] of st.airportCount){
-    const A=AIRPORTS[iata];if(!A)continue;
-    ccCount.set(A[4],(ccCount.get(A[4])||0)+cnt);
-  }
-  const ccs = [...ccCount.entries()].sort((a,b)=>b[1]-a[1]).map(x=>x[0]);
+  // 國旗依「首次造訪順序」排列：航班依時間排序，逐班取「出發國→抵達國」，各國首次出現才收錄
+  const seenCC = new Set();
+  const ccs = [];
+  (STATE.filtered || STATE.flights)
+    .filter(f => !f.canceled)
+    .sort((a, b) => {
+      const ka = a.date + (a.times.gateDepSched || ''), kb = b.date + (b.times.gateDepSched || '');
+      return ka < kb ? -1 : ka > kb ? 1 : 0;
+    })
+    .forEach(f => {
+      for (const iata of [f.from, f.effectiveTo]) {
+        const A = AIRPORTS[iata]; if (!A) continue;
+        if (!seenCC.has(A[4])) { seenCC.add(A[4]); ccs.push(A[4]); }
+      }
+    });
   
   const mapW = 1000;
   const H = 600;
@@ -1407,7 +1416,7 @@ function Rankings({st}){
       sub=${(airportCity(a)||'')+' — '+(airportCity(b)||'')} cnt=${cnt}/>`;});
   const maxAl=Math.max(1,...st.airlineCount.values());
   const airlines=topN(st.airlineCount,8).map(([icao,cnt],i)=>html`<${RankItem} key=${icao} i=${i}
-    name=${airlineName(icao)} sub=${airlineSub(icao)} cnt=${cnt} share=${cnt/maxAl} total=${st.total}
+    name=${airlineName(icao)} sub=${airlineSub(icao)} cnt=${cnt} share=${cnt/maxAl}
     icon=${html`<${Logo} icao=${icao}/>`}/>`);
   const aircraft=topN(st.aircraftCount,8).map(([name,cnt],i)=>html`<${RankItem} key=${name} i=${i} name=${name} cnt=${cnt}/>`);
   const airports=topN(st.airportCount,8).map(([iata,cnt],i)=>{const a=AIRPORTS[iata];
