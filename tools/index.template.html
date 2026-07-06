@@ -732,6 +732,7 @@ zh:{
   errSkipped:n=>`已載入，但有 ${n} 列資料不完整（缺日期／機場／航空公司）已略過。`,errRead:'讀取檔案失敗。',
   pbDone:n=>`播放完畢 · 共 ${n} 段航程`,
   titlePlay:'播放航跡（依時間順序）',titleSpeed:'播放速度',titleZoomIn:'放大',titleZoomOut:'縮小',titleZoomReset:'重設視角',titleTheme:'切換深淺色主題',titleShareMap:'分享為圖',
+  docTitle:'Flighty Web Viewer — 個人飛行紀錄視覺化',
 },
 en:{
   dropzone:'Upload data — drop or select CSV',dropOverlay:'Drop to load CSV',btnReset:'Restore default data',
@@ -767,6 +768,7 @@ en:{
   errSkipped:n=>`Loaded, but ${n} incomplete rows (missing date/airport/airline) were skipped.`,errRead:'Failed to read file.',
   pbDone:n=>`Done · ${n} flights`,
   titlePlay:'Play flight history (chronological)',titleSpeed:'Playback speed',titleZoomIn:'Zoom in',titleZoomOut:'Zoom out',titleZoomReset:'Reset view',titleTheme:'Toggle dark/light theme',titleShareMap:'Share as image',
+  docTitle:'Flighty Web Viewer — Personal flight-log visualization',
 }
 };
 function t(key,...a){
@@ -775,6 +777,7 @@ function t(key,...a){
 }
 function applyLang(){
   document.documentElement.lang=STATE.lang==='zh'?'zh-Hant':'en';
+  document.title=t('docTitle');
   $('#btnLang').textContent=STATE.lang==='zh'?'EN':'中';
   $('#dropzoneText').textContent=t('dropzone');
   $('#btnShareMapText').textContent=t('titleShareMap');
