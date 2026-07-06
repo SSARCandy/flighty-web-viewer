@@ -6,9 +6,14 @@
   "scripts": {
     "build": "node tools/build.js",
     "build:dev": "node tools/build.js --no-min",
-    "test": "node tools/build.js && node tools/test.js"
+    "test": "node tools/build.js && node tools/test.js && node tools/test.ui.js"
   },
   "devDependencies": {
-    "html-minifier-terser": "^7.2.0"
+    "html-minifier-terser": "^7.2.0",
+    "jsdom": "^29.1.1"
+  },
+  "dependencies": {
+    "htm": "^3.1.1",
+    "preact": "^10.29.4"
   }
 }

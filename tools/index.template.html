@@ -3,7 +3,16 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Flighty Web Viewer</title>
+<title>Flighty Web Viewer — 個人飛行紀錄視覺化</title>
+<meta name="description" content="把 Flighty 匯出的 CSV 變成互動式個人飛行地圖：世界航線圖、總距離與時數、準點分析、航線／航空公司／機場排行。單一 HTML 檔、100% 在瀏覽器本機運算，資料不會上傳。A single-file, client-side viewer for Flighty flight-history CSV exports.">
+<meta name="color-scheme" content="dark light">
+<meta name="theme-color" content="#060a14" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#edf1f8" media="(prefers-color-scheme: light)">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Ctext y='20' font-size='20'%3E%E2%9C%88%EF%B8%8F%3C/text%3E%3C/svg%3E">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Flighty Web Viewer">
+<meta property="og:description" content="把 Flighty 匯出的資料變成互動式個人飛行地圖與統計儀表板。">
+<meta name="twitter:card" content="summary">
 <style>
 :root{
   color-scheme:dark;
@@ -123,6 +132,10 @@ section{margin-bottom:16px}
 .map-ctrl button{width:32px;height:32px;border-radius:8px;border:1px solid var(--line);background:var(--ctrlbg);color:var(--ink2);font-size:14px;cursor:pointer;line-height:1;padding:0}
 .map-ctrl button:hover{border-color:var(--accent);color:var(--accent)}
 .map-ctrl button.on{background:var(--accent-dim);border-color:var(--accent);color:var(--accent)}
+/* 播放鍵是主要動作 → 實心 accent + 光暈，凸顯於縮放鍵之間；圖示色依主題確保對比 */
+#btnPlay{background:var(--accent);border-color:var(--accent);color:#052036;box-shadow:0 0 11px -1px var(--accent)}
+:root[data-theme="light"] #btnPlay{color:#fff}
+#btnPlay:hover{border-color:var(--accent);filter:brightness(1.12)}
 .map-ctrl .sep{width:1px;background:var(--line);margin:5px 2px}
 #playCaption{position:absolute;left:50%;transform:translateX(-50%);bottom:30px;background:var(--ctrlbg);border:1px solid var(--tipline);border-radius:20px;padding:6px 14px;font-size:12px;color:var(--ink);z-index:5;white-space:nowrap;max-width:92%;overflow:hidden;text-overflow:ellipsis}
 #map.playing .routes-static{display:none}
@@ -168,8 +181,9 @@ section{margin-bottom:16px}
 .tile.hero .v{color:var(--accent);font-size:clamp(26px,4vw,38px)}
 
 /* ---------- grids ---------- */
-.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:stretch}
-@media(max-width:760px){.grid-2{grid-template-columns:1fr}}
+/* minmax(0,1fr) 而非 1fr：避免 rank 卡片的 min-content 撐爆欄軌、在 iPhone SE 頂到螢幕邊緣 */
+.grid-2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;align-items:stretch}
+@media(max-width:760px){.grid-2{grid-template-columns:minmax(0,1fr)}}
 
 /* ---------- year chart ---------- */
 #yearChart{display:flex;align-items:flex-end;gap:6px;height:170px;padding-top:18px}
@@ -286,11 +300,12 @@ footer .warn-apt{color:var(--warn)}
 </style>
 </head>
 <body>
+<noscript><div style="max-width:1080px;margin:20px auto;padding:14px 16px;border:1px solid #ff6b6b;border-radius:12px;color:#ff6b6b;font-family:system-ui,-apple-system,sans-serif">此工具需要 JavaScript 才能解析 CSV 並繪製航線地圖與統計。 · This viewer needs JavaScript to parse your CSV and render the map &amp; stats.</div></noscript>
 <div class="wrap">
   <header class="topbar">
     <div>
       <h1>Flighty Web Viewer</h1>
-      <p id="statusLine">…</p>
+      <p id="statusLine"></p>
     </div>
     <div class="actions">
       <button id="btnLang" type="button" aria-label="Switch language">EN</button>
@@ -327,37 +342,8 @@ footer .warn-apt{color:var(--warn)}
     </div>
   </section>
 
-  <section id="statTiles" class="tiles" aria-label="飛行統計"></section>
-
-  <section class="grid-2">
-    <div class="card">
-      <h2><span id="hYears">年度航班</span></h2>
-      <div id="yearChart"></div>
-      <table class="sr-only" id="yearTable"><caption>每年航班數</caption></table>
-    </div>
-    <div class="card">
-      <h2><span id="hPunct">準點分析</span> <small id="punctNote"></small></h2>
-      <div class="punct-grid" id="punctGrid"></div>
-      <div class="punct-note" id="punctDefNote">準點定義：抵達登機門延誤 ≤ 15 分鐘。提早以綠色負數呈現。各項僅統計具實際時間戳的航班。</div>
-    </div>
-  </section>
-
-  <section class="grid-2">
-    <div class="card"><h2><span id="hRoutes">最常飛航線</span></h2><div id="rankRoutes"></div></div>
-    <div class="card"><h2><span id="hAirlines">最常搭航空公司</span></h2><div id="rankAirlines"></div></div>
-  </section>
-  <section class="grid-2">
-    <div class="card"><h2><span id="hAircraft">最常搭機型</span> <small id="acCount"></small></h2><div id="rankAircraft"></div></div>
-    <div class="card"><h2><span id="hAirports">最常出入機場</span> <small id="apCount"></small></h2><div id="rankAirports"></div></div>
-  </section>
-
-  <section class="card">
-    <h2><span id="hList">航班列表</span> <small id="listHint">點擊展開明細</small></h2>
-    <div id="flightList"></div>
-    <div class="fl-more" id="flMore" hidden><button type="button">顯示全部</button></div>
-  </section>
-
-  <footer id="foot"></footer>
+  <!-- 地圖以下的資料區塊由 Preact 掛載（見 Dashboard 元件） -->
+  <div id="dash"></div>
 </div>
 
 <div id="dropOverlay" aria-hidden="true"><div id="dropOverlayText">放開以載入 CSV</div></div>
@@ -369,6 +355,7 @@ footer .warn-apt{color:var(--warn)}
 <script>
 const DEFAULT_CSV = /*__DEFAULT_CSV__*/"";
 </script>
+<script>/*__RUNTIME__*/</script>
 <script>
 "use strict";
 /*__LOGIC_START__*/
@@ -697,26 +684,7 @@ function darkText(color){ // 亮底 → 深色字
   const L=0.2126*(n>>16&255)+0.7152*(n>>8&255)+0.0722*(n&255);
   return L>150;
 }
-function logoEl(icao){
-  // 真實航空公司 logo（Jxck-S/airline-logos, FlightAware 版）優先；查無 → 品牌色字母徽章
-  if(typeof LOGO_URIS!=='undefined'&&LOGO_URIS[icao]){
-    const d=el('span','alogo img');
-    const img=document.createElement('img');
-    img.src=LOGO_URIS[icao];img.alt='';img.loading='lazy';
-    d.appendChild(img);
-    return d;
-  }
-  const a=AIRLINE_INFO[icao];
-  const color=airlineColor(icao);
-  const d=el('span','alogo',(a&&a[0])?a[0]:icao.slice(0,2));
-  d.style.background=color;
-  d.style.color=darkText(color)?'#101623':'#fff';
-  return d;
-}
-function hoverTip(elm,info){
-  elm.addEventListener('pointermove',e=>showTip(e.clientX,e.clientY,info()));
-  elm.addEventListener('pointerleave',hideTip);
-}
+// airlineColor/darkText 供 <Logo> 元件使用；圓形徽章與懸浮提示已元件化（見 tipProps）
 function airlineName(icao){const a=AIRLINE_INFO[icao];return a?(STATE.lang==='zh'?a[1]:a[2]):icao;}
 function airlineSub(icao){const a=AIRLINE_INFO[icao];return a&&STATE.lang==='zh'?a[2]:null;}
 function airlineFull(icao){const a=AIRLINE_INFO[icao];return a?(STATE.lang==='zh'?`${a[1]} ${a[2]}`:a[2]):icao;}
@@ -814,10 +782,7 @@ function applyLang(){
   $('#btnReset').textContent=t('btnReset');
   $('#legendRoute').textContent=t('legendRoute');
   $('#legendApt').textContent=t('legendApt');
-  for(const id of ['hYears','hPunct','hRoutes','hAirlines','hAircraft','hAirports','hList'])
-    $('#'+id).textContent=t(id);
-  $('#listHint').textContent=t('listHint');
-  $('#punctDefNote').textContent=t('punctDef');
+  // 標題／列表提示／準點定義等文字改由 Preact 元件依 STATE.lang 呈現（見 renderWidgets）
   $('#btnPlay').title=t('titlePlay');$('#btnSpeed').title=t('titleSpeed');
   $('#btnZoomIn').title=t('titleZoomIn');$('#btnZoomOut').title=t('titleZoomOut');
   $('#btnZoomReset').title=t('titleZoomReset');$('#btnTheme').title=t('titleTheme');
@@ -1284,264 +1249,271 @@ $('#btnSpeed').addEventListener('click',()=>{
   $('#btnSpeed').textContent=PB.speed+'×';
 });
 
+// ============ Preact 元件層 ============
+// html / render / Fragment / useState / useRef / useLayoutEffect 由內嵌的
+// Preact+htm runtime 掛在 window 上（見 build.js 的 runtime 注入區塊）。
+// 資料統計（computeStats 等）仍是純邏輯區；地圖／播放／分享／載入仍為命令式。
+const LIST_LIMIT=10;
+
+// 滑鼠/觸控懸浮 → 沿用命令式的單例 tooltip
+function tipProps(info){
+  return {onPointerMove:e=>showTip(e.clientX,e.clientY,info()),onPointerLeave:hideTip};
+}
+
+// 圓形國旗：沿用 flagEl() 產生的 SVG（分享功能也用同一個 flagEl），
+// 以 ref 塞入 innerHTML；本身即 .flag（.iconrow/.rank-item 的 flex 子項，不可外包一層）
+function Flag({cc,label,tip}){
+  const ref=useRef(null);
+  useLayoutEffect(()=>{if(ref.current)ref.current.innerHTML=flagEl(cc).innerHTML;},[cc]);
+  return html`<span class="flag" role=${label?'img':null} aria-label=${label||null}
+    ...${tip?tipProps(tip):null} ref=${ref}></span>`;
+}
+// 航空公司徽章：真實 logo（LOGO_URIS）優先，否則品牌色字母
+function Logo({icao,label,tip}){
+  const uri=(typeof LOGO_URIS!=='undefined')&&LOGO_URIS[icao];
+  const p=tip?tipProps(tip):null;
+  if(uri)return html`<span class="alogo img" aria-label=${label||null} ...${p}>
+    <img src=${uri} alt="" loading="lazy"/></span>`;
+  const a=AIRLINE_INFO[icao],color=airlineColor(icao);
+  return html`<span class="alogo" aria-label=${label||null}
+    style=${`background:${color};color:${darkText(color)?'#101623':'#fff'}`} ...${p}>${(a&&a[0])?a[0]:icao.slice(0,2)}</span>`;
+}
+
 // ---- stat tiles ----
-function renderTiles(st){
-  const c=$('#statTiles');c.textContent='';
-  const tile=(lb,v,sub,hero,vSuffix)=>{
-    const t=el('div','tile'+(hero?' hero':''));
-    t.appendChild(el('div','lb',lb));
-    const vd=el('div','v'+(String(v).length>=7?' sm':''),v);
-    if(vSuffix)vd.appendChild(el('small',null,vSuffix));
-    t.appendChild(vd);
-    if(sub)t.appendChild(el('div','sub',sub));
-    c.appendChild(t);
-    return t;
-  };
+function Tile({lb,value,sub,hero,suffix,children}){
+  return html`<div class=${'tile'+(hero?' hero':'')}>
+    <div class="lb">${lb}</div>
+    <div class=${'v'+(String(value).length>=7?' sm':'')}>${value}${suffix?html`<small>${suffix}</small>`:null}</div>
+    ${sub?html`<div class="sub">${sub}</div>`:null}
+    ${children}
+  </div>`;
+}
+function StatTiles({st}){
   const loops=st.distanceKm/EARTH_CIRC;
-  tile(t('tFlights'),fmtInt(st.total),st.canceled?t('canceledN',st.canceled):null,true);
-  tile(t('tDist'),fmtInt(Math.round(st.distanceKm)),t('loops',loops.toFixed(1))+(st.distExcluded?t('noCoordN',st.distExcluded):''),false,' km');
-  const hSub=st.hoursBySrc.block||st.hoursBySrc.air
+  const hSub=(st.hoursBySrc.block||st.hoursBySrc.air)
     ?t('hoursSub',st.hoursBySrc.air+st.hoursBySrc.block,st.hoursBySrc.dist)
     :t('hoursSubDist');
-  tile(t('tHours'),fmtInt(Math.round(st.hours)),hSub+(st.hoursExcluded?t('hoursExcl',st.hoursExcluded):''),false,t('hoursUnit'));
-  tile(t('tRoutes'),fmtInt(st.routes.size),t('routesSub'));
-  // 國家／地區：附圓形國旗（依起降次數排序）
-  const tCountry=tile(t('tCountries'),fmtInt(st.countries.size));
   const ccCount=new Map();
-  for(const [iata,cnt] of st.airportCount){
-    const A=AIRPORTS[iata];if(!A)continue;
-    ccCount.set(A[4],(ccCount.get(A[4])||0)+cnt);
-  }
-  if(ccCount.size){
-    const row=el('div','iconrow');
-    [...ccCount.entries()].sort((a,b)=>b[1]-a[1]).forEach(([cc,cnt])=>{
-      const f=flagEl(cc);
-      f.setAttribute('aria-label',countryName(cc));
-      hoverTip(f,()=>[['tv',countryName(cc)],['tl',t('visitsN',cnt)]]);
-      row.appendChild(f);
-    });
-    tCountry.appendChild(row);
-  }
-  // 航空公司：附圓形徽章（依搭乘次數排序）
-  const tAirline=tile(t('tAirlines'),fmtInt(st.airlines.size));
-  if(st.airlineCount.size){
-    const row=el('div','iconrow');
-    [...st.airlineCount.entries()].sort((a,b)=>b[1]-a[1]).forEach(([icao,cnt])=>{
-      const g=logoEl(icao);
-      g.setAttribute('aria-label',airlineName(icao));
-      hoverTip(g,()=>[['tv',airlineName(icao)],['tl',t('flightsN',cnt)]]);
-      row.appendChild(g);
-    });
-    tAirline.appendChild(row);
-  }
+  for(const [iata,cnt] of st.airportCount){const A=AIRPORTS[iata];if(!A)continue;ccCount.set(A[4],(ccCount.get(A[4])||0)+cnt);}
+  const ccs=[...ccCount.entries()].sort((a,b)=>b[1]-a[1]);
+  const als=[...st.airlineCount.entries()].sort((a,b)=>b[1]-a[1]);
+  return html`<section class="tiles" aria-label="飛行統計">
+    <${Tile} lb=${t('tFlights')} value=${fmtInt(st.total)} sub=${st.canceled?t('canceledN',st.canceled):null}/>
+    <${Tile} lb=${t('tDist')} value=${fmtInt(Math.round(st.distanceKm))} suffix=" km"
+      sub=${t('loops',loops.toFixed(1))+(st.distExcluded?t('noCoordN',st.distExcluded):'')}/>
+    <${Tile} lb=${t('tHours')} value=${fmtInt(Math.round(st.hours))} suffix=${t('hoursUnit')}
+      sub=${hSub+(st.hoursExcluded?t('hoursExcl',st.hoursExcluded):'')}/>
+    <${Tile} lb=${t('tRoutes')} value=${fmtInt(st.routes.size)} sub=${t('routesSub')}/>
+    <${Tile} lb=${t('tCountries')} value=${fmtInt(st.countries.size)}>
+      ${ccs.length?html`<div class="iconrow">${ccs.map(([cc,cnt])=>html`<${Flag} key=${cc} cc=${cc}
+        label=${countryName(cc)} tip=${()=>[['tv',countryName(cc)],['tl',t('visitsN',cnt)]]}/>`)}</div>`:null}
+    </${Tile}>
+    <${Tile} lb=${t('tAirlines')} value=${fmtInt(st.airlines.size)}>
+      ${als.length?html`<div class="iconrow">${als.map(([icao,cnt])=>html`<${Logo} key=${icao} icao=${icao}
+        label=${airlineName(icao)} tip=${()=>[['tv',airlineName(icao)],['tl',t('flightsN',cnt)]]}/>`)}</div>`:null}
+    </${Tile}>
+  </section>`;
 }
 
-// ---- year filter ----
-function toggleYear(y){
-  STATE.yearFilter=STATE.yearFilter===y?null:y;
-  STATE.listExpanded=false;
-  renderAll();
-}
-function renderYearChips(allSt){
-  const c=$('#yearFilter');c.textContent='';
-  const mkChip=(label,y)=>{
-    const b=el('button','chip'+(STATE.yearFilter===y?' on':''),label);
-    b.type='button';
-    b.setAttribute('aria-pressed',STATE.yearFilter===y?'true':'false');
-    b.addEventListener('click',()=>{if(STATE.yearFilter!==y){STATE.yearFilter=y;STATE.listExpanded=false;renderAll();}});
-    c.appendChild(b);
-  };
-  mkChip(t('allYears'),null);
-  for(const [y,n] of allSt.yearRange)if(n)mkChip(String(y),y);
+// ---- year filter chips ----
+function applyYear(){STATE.listExpanded=false;renderAll();}
+function toggleYear(y){STATE.yearFilter=STATE.yearFilter===y?null:y;applyYear();}
+function pickYear(y){if(STATE.yearFilter!==y){STATE.yearFilter=y;applyYear();}}
+function YearChips({allSt,yearFilter}){
+  const chips=[[t('allYears'),null]];
+  for(const [y,n] of allSt.yearRange)if(n)chips.push([String(y),y]);
+  return html`<${Fragment}>${chips.map(([label,y])=>html`<button key=${y} type="button"
+    class=${'chip'+(yearFilter===y?' on':'')} aria-pressed=${yearFilter===y?'true':'false'}
+    onClick=${()=>pickYear(y)}>${label}</button>`)}</${Fragment}>`;
 }
 
-// ---- year chart（永遠顯示全部年份；點擊長條可篩選） ----
-function renderYears(allSt){
-  const c=$('#yearChart');c.textContent='';
-  const tb=$('#yearTable');tb.textContent='';
-  const cap=el('caption',null,t('yearTableCaption'));tb.appendChild(cap);
+// ---- year chart（永遠顯示全部年份；點擊長條可篩選）+ 無障礙表格 ----
+function YearChart({allSt,yearFilter}){
   const max=Math.max(1,...allSt.yearRange.map(y=>y[1]));
-  for(const [y,n] of allSt.yearRange){
-    const sel=STATE.yearFilter===y;
-    const bar=el('div','ybar'+(n?'':' zero')+(sel?' sel':'')+(STATE.yearFilter!==null&&!sel?' dim':''));
-    bar.setAttribute('tabindex','0');
-    bar.setAttribute('role','button');
-    bar.setAttribute('aria-pressed',sel?'true':'false');
-    bar.setAttribute('aria-label',t('yearAria',y,n));
-    if(n===max)bar.appendChild(el('div','vl',String(n)));
-    const f=el('div','fill');
-    f.style.height=n?Math.max(3,Math.round(n/max*118))+'px':'';
-    bar.appendChild(f);
-    bar.appendChild(el('div','yl',String(y)));
-    const info=()=>[['tv',t('flightsN',n)],['tl',t('yearN',y)+' · '+t('clickToFilter')]];
-    bar.addEventListener('pointermove',e=>showTip(e.clientX,e.clientY,info()));
-    bar.addEventListener('pointerleave',hideTip);
-    bar.addEventListener('focus',()=>{const r=bar.getBoundingClientRect();showTip(r.x,r.y,info());});
-    bar.addEventListener('blur',hideTip);
-    bar.addEventListener('click',()=>{hideTip();toggleYear(y);});
-    bar.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();hideTip();toggleYear(y);}});
-    c.appendChild(bar);
-    const tr=el('tr');tr.appendChild(el('th',null,String(y)));tr.appendChild(el('td',null,String(n)));tb.appendChild(tr);
-  }
+  return html`<div class="card">
+    <h2><span>${t('hYears')}</span></h2>
+    <div id="yearChart">${allSt.yearRange.map(([y,n])=>{
+      const sel=yearFilter===y;
+      const cls='ybar'+(n?'':' zero')+(sel?' sel':'')+(yearFilter!==null&&!sel?' dim':'');
+      const info=()=>[['tv',t('flightsN',n)],['tl',t('yearN',y)+' · '+t('clickToFilter')]];
+      return html`<div key=${y} class=${cls} tabindex="0" role="button" aria-pressed=${sel?'true':'false'}
+        aria-label=${t('yearAria',y,n)} ...${tipProps(info)}
+        onFocus=${e=>{const r=e.currentTarget.getBoundingClientRect();showTip(r.x,r.y,info());}} onBlur=${hideTip}
+        onClick=${()=>{hideTip();toggleYear(y);}}
+        onKeyDown=${e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();hideTip();toggleYear(y);}}}>
+        ${n===max?html`<div class="vl">${n}</div>`:null}
+        <div class="fill" style=${n?`height:${Math.max(3,Math.round(n/max*118))}px`:''}></div>
+        <div class="yl">${y}</div>
+      </div>`;
+    })}</div>
+    <table class="sr-only"><caption>${t('yearTableCaption')}</caption>
+      ${allSt.yearRange.map(([y,n])=>html`<tr key=${y}><th>${y}</th><td>${n}</td></tr>`)}
+    </table>
+  </div>`;
 }
 
 // ---- punctuality ----
-function renderPunct(st){
-  const g=$('#punctGrid');g.textContent='';
-  const pt=(lb,v,cls,sub)=>{
-    const d=el('div','pt');
-    d.appendChild(el('div','lb',lb));
-    d.appendChild(el('div','v'+(cls?' '+cls:''),v));
-    if(sub)d.appendChild(el('div','sub',sub));
-    g.appendChild(d);
-  };
-  const clsOf=m=>m===null?'':(m<=0?'good':m<=15?'good':m<=30?'warn':'bad');
-  pt(t('avgDep'),st.avgDep===null?'—':fmtDelay(st.avgDep),clsOf(st.avgDep),t('depSamples',st.depDelays.length));
-  pt(t('avgArr'),st.avgArr===null?'—':fmtDelay(st.avgArr),clsOf(st.avgArr),t('arrSamples',st.arrDelays.length));
-  pt(t('onTimeRate'),st.onTime===null?'—':Math.round(st.onTime*100)+'%',st.onTime!==null&&st.onTime>=0.8?'good':st.onTime!==null&&st.onTime>=0.6?'warn':'bad',st.arrDelays.length?t('arrSamples2',st.arrDelays.length):t('noSample'));
-  if(st.maxArrDelay){
-    const f=st.maxArrDelay.f;
-    pt(t('maxArrDelay'),fmtDelay(st.maxArrDelay.min),st.maxArrDelay.min>15?'bad':'good',`${flightNo(f)} · ${f.date} · ${f.from}→${f.effectiveTo}`);
-  } else pt(t('maxArrDelay'),'—','',t('noSample'));
-  $('#punctNote').textContent='';
+function Punctuality({st}){
+  const clsOf=m=>m===null?'':(m<=15?'good':m<=30?'warn':'bad');
+  const rateCls=st.onTime===null?'':st.onTime>=0.8?'good':st.onTime>=0.6?'warn':'bad';
+  const items=[
+    [t('avgDep'),st.avgDep===null?'—':fmtDelay(st.avgDep),clsOf(st.avgDep),t('depSamples',st.depDelays.length)],
+    [t('avgArr'),st.avgArr===null?'—':fmtDelay(st.avgArr),clsOf(st.avgArr),t('arrSamples',st.arrDelays.length)],
+    [t('onTimeRate'),st.onTime===null?'—':Math.round(st.onTime*100)+'%',rateCls,st.arrDelays.length?t('arrSamples2',st.arrDelays.length):t('noSample')],
+    st.maxArrDelay
+      ?[t('maxArrDelay'),fmtDelay(st.maxArrDelay.min),st.maxArrDelay.min>15?'bad':'good',`${flightNo(st.maxArrDelay.f)} · ${st.maxArrDelay.f.date} · ${st.maxArrDelay.f.from}→${st.maxArrDelay.f.effectiveTo}`]
+      :[t('maxArrDelay'),'—','',t('noSample')],
+  ];
+  return html`<div class="card">
+    <h2><span>${t('hPunct')}</span></h2>
+    <div class="punct-grid">${items.map(([lb,v,cls,sub],i)=>html`<div class="pt" key=${i}>
+      <div class="lb">${lb}</div>
+      <div class=${'v'+(cls?' '+cls:'')}>${v}</div>
+      ${sub?html`<div class="sub">${sub}</div>`:null}
+    </div>`)}</div>
+    <div class="punct-note">${t('punctDef')}</div>
+  </div>`;
 }
 
 // ---- rankings ----
-function rankRow(i,name,sub,cnt,share,total,icon){
-  const d=el('div','rank-item');
-  d.appendChild(el('span','n',String(i+1)));
-  if(icon)d.appendChild(icon);
-  const nm=el('span','name',name);
-  if(sub)nm.appendChild(el('small',null,sub));
-  d.appendChild(nm);
-  if(share!==null){
-    const s=el('span','share');const bar=el('i');
-    bar.style.width=Math.round(share*100)+'%';s.appendChild(bar);d.appendChild(s);
-  }
-  const c=el('span','cnt',String(cnt));
-  if(total)c.appendChild(el('small',null,Math.round(cnt/total*100)+'%'));
-  d.appendChild(c);
-  return d;
+function RankItem({i,name,sub,cnt,share,total,icon}){
+  return html`<div class="rank-item">
+    <span class="n">${i+1}</span>
+    ${icon||null}
+    <span class="name">${name}${sub?html`<small>${sub}</small>`:null}</span>
+    ${share!=null?html`<span class="share"><i style=${`width:${Math.round(share*100)}%`}></i></span>`:null}
+    <span class="cnt">${cnt}${total?html`<small>${Math.round(cnt/total*100)+'%'}</small>`:null}</span>
+  </div>`;
 }
-function renderRankings(st){
-  const routes=$('#rankRoutes');routes.textContent='';
-  topN(st.routes,8).forEach(([key,cnt],i)=>{
-    const [a,b]=key.split('-');
-    routes.appendChild(rankRow(i,`${a} ⇌ ${b}`,`${airportCity(a)||''} — ${airportCity(b)||''}`,cnt,null,null));
-  });
-  const airlines=$('#rankAirlines');airlines.textContent='';
+function Rankings({st}){
+  const routes=topN(st.routes,8).map(([key,cnt],i)=>{const [a,b]=key.split('-');
+    return html`<${RankItem} key=${key} i=${i} name=${a+' ⇌ '+b}
+      sub=${(airportCity(a)||'')+' — '+(airportCity(b)||'')} cnt=${cnt}/>`;});
   const maxAl=Math.max(1,...st.airlineCount.values());
-  topN(st.airlineCount,8).forEach(([icao,cnt],i)=>{
-    airlines.appendChild(rankRow(i,airlineName(icao),airlineSub(icao),cnt,cnt/maxAl,st.total,logoEl(icao)));
-  });
-  const ac=$('#rankAircraft');ac.textContent='';
-  $('#acCount').textContent=t('aircraftN',st.aircraft.size);
-  topN(st.aircraftCount,8).forEach(([name,cnt],i)=>{
-    ac.appendChild(rankRow(i,name,null,cnt,null,null));
-  });
-  const ap=$('#rankAirports');ap.textContent='';
-  $('#apCount').textContent=t('airportsN',st.airports.size)+(st.unknownAirports.size?t('unknownN',st.unknownAirports.size):'');
-  topN(st.airportCount,8).forEach(([iata,cnt],i)=>{
-    const a=AIRPORTS[iata];
-    ap.appendChild(rankRow(i,iata,a?`${a[3]}, ${countryName(a[4])}`:t('unknownApt'),cnt,null,null,a?flagEl(a[4]):null));
-  });
+  const airlines=topN(st.airlineCount,8).map(([icao,cnt],i)=>html`<${RankItem} key=${icao} i=${i}
+    name=${airlineName(icao)} sub=${airlineSub(icao)} cnt=${cnt} share=${cnt/maxAl} total=${st.total}
+    icon=${html`<${Logo} icao=${icao}/>`}/>`);
+  const aircraft=topN(st.aircraftCount,8).map(([name,cnt],i)=>html`<${RankItem} key=${name} i=${i} name=${name} cnt=${cnt}/>`);
+  const airports=topN(st.airportCount,8).map(([iata,cnt],i)=>{const a=AIRPORTS[iata];
+    return html`<${RankItem} key=${iata} i=${i} name=${iata}
+      sub=${a?`${a[3]}, ${countryName(a[4])}`:t('unknownApt')} cnt=${cnt}
+      icon=${a?html`<${Flag} cc=${a[4]}/>`:null}/>`;});
+  return html`<${Fragment}>
+    <section class="grid-2">
+      <div class="card"><h2><span>${t('hRoutes')}</span></h2><div>${routes}</div></div>
+      <div class="card"><h2><span>${t('hAirlines')}</span></h2><div>${airlines}</div></div>
+    </section>
+    <section class="grid-2">
+      <div class="card"><h2><span>${t('hAircraft')}</span> <small>${t('aircraftN',st.aircraft.size)}</small></h2><div>${aircraft}</div></div>
+      <div class="card"><h2><span>${t('hAirports')}</span> <small>${t('airportsN',st.airports.size)+(st.unknownAirports.size?t('unknownN',st.unknownAirports.size):'')}</small></h2><div>${airports}</div></div>
+    </section>
+  </${Fragment}>`;
 }
 
 // ---- flight list ----
-const LIST_LIMIT=20;
 function delayBadge(f){
-  if(f.canceled)return el('span','badge canceled',t('badgeCanceled'));
-  const todayStr=new Date().toISOString().slice(0,10);
+  if(f.canceled)return html`<span class="badge canceled">${t('badgeCanceled')}</span>`;
   const ad=delayMin(f.times.gateArrSched,f.times.gateArrActual);
   if(ad!==null){
-    if(ad<=-5)return el('span','badge early',fmtDelay(ad));
-    if(ad<=15)return el('span','badge ontime',fmtDelay(ad));
-    if(ad<=45)return el('span','badge late',fmtDelay(ad));
-    return el('span','badge verylate',fmtDelay(ad));
+    const cls=ad<=-5?'early':ad<=15?'ontime':ad<=45?'late':'verylate';
+    return html`<span class=${'badge '+cls}>${fmtDelay(ad)}</span>`;
   }
-  if(f.date>todayStr)return el('span','badge upcoming',t('badgeUpcoming'));
+  if(f.date>new Date().toISOString().slice(0,10))return html`<span class="badge upcoming">${t('badgeUpcoming')}</span>`;
   return null;
 }
 function fmtTs(s){return s?s.replace('T',' '):null;}
-function renderList(st,flights){
-  const c=$('#flightList');c.textContent='';
-  const sorted=[...flights].sort((a,b)=>b.date<a.date?-1:b.date>a.date?1:0);
-  const shown=STATE.listExpanded?sorted:sorted.slice(0,LIST_LIMIT);
-  for(const f of shown){
-    const row=el('div','fl-row'+(f.canceled?' canceled':''));
-    row.setAttribute('role','button');row.setAttribute('tabindex','0');
-    const lg=el('span','lg');lg.appendChild(logoEl(f.airlineIcao));
-    row.appendChild(lg);
-    row.appendChild(el('span','d',f.date));
-    row.appendChild(el('span','no',flightNo(f)));
-    const cityA=airportCity(f.from),cityB=airportCity(f.effectiveTo);
-    const rt=el('span','rt',`${f.from} → ${f.effectiveTo}`);
-    if(cityA||cityB)rt.appendChild(el('small',null,`${cityA||f.from} — ${cityB||f.effectiveTo}`));
-    row.appendChild(rt);
-    row.appendChild(el('span','ac',f.aircraft||''));
-    // 手機版合併次要資訊為一行（桌面隱藏）
-    row.appendChild(el('span','meta',`${f.date} · ${flightNo(f)}${f.aircraft?' · '+f.aircraft:''}`));
-    const bdg=el('span','bdg');
-    if(f.divertedTo)bdg.appendChild(el('span','badge diverted',t('badgeDiverted',f.divertedTo)));
-    const b=delayBadge(f);if(b)bdg.appendChild(b);
-    row.appendChild(bdg);
-    const det=el('div','fl-detail');
-    const kv=(k,v)=>{if(v===null||v===undefined||v==='')return;const w=el('div','w');w.appendChild(el('div','k',k));w.appendChild(el('div',null,v));det.appendChild(w);};
-    kv(t('kAirline'),airlineFull(f.airlineIcao));
-    kv(t('kFlightNo'),flightNo(f)+`（${f.airlineIcao} ${f.flightNumber||''}）`);
-    kv(t('kDepTG'),[f.depTerminal&&(t('kTerminal')+' '+f.depTerminal),f.depGate&&(t('kGate')+' '+f.depGate)].filter(Boolean).join(' · ')||null);
-    kv(t('kArrTG'),[f.arrTerminal&&(t('kTerminal')+' '+f.arrTerminal),f.arrGate&&(t('kGate')+' '+f.arrGate)].filter(Boolean).join(' · ')||null);
-    kv(t('kTail'),f.tail);
-    kv(t('kSeat'),f.seat?f.seat+(f.cabin?` · ${f.cabin}`:''):f.cabin);
-    kv(t('kGateDepS'),fmtTs(f.times.gateDepSched));kv(t('kGateDepA'),fmtTs(f.times.gateDepActual));
-    kv(t('kTakeoffS'),fmtTs(f.times.takeoffSched));kv(t('kTakeoffA'),fmtTs(f.times.takeoffActual));
-    kv(t('kLandS'),fmtTs(f.times.landingSched));kv(t('kLandA'),fmtTs(f.times.landingActual));
-    kv(t('kGateArrS'),fmtTs(f.times.gateArrSched));kv(t('kGateArrA'),fmtTs(f.times.gateArrActual));
-    const dd=delayMin(f.times.gateDepSched,f.times.gateDepActual);
-    if(dd!==null)kv(t('kDepDelay'),fmtDelay(dd));
-    kv(t('kNotes'),f.notes);
-    const toggle=()=>{det.classList.toggle('open');};
-    row.addEventListener('click',toggle);
-    row.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();toggle();}});
-    c.appendChild(row);c.appendChild(det);
-  }
-  const more=$('#flMore');
-  if(sorted.length>LIST_LIMIT&&!STATE.listExpanded){
-    more.hidden=false;
-    more.querySelector('button').textContent=t('showAllN',sorted.length);
-  } else more.hidden=true;
+function flightDetail(f){
+  const rows=[],add=(k,v)=>{if(v!==null&&v!==undefined&&v!=='')rows.push([k,v]);};
+  add(t('kAirline'),airlineFull(f.airlineIcao));
+  add(t('kFlightNo'),flightNo(f)+`（${f.airlineIcao} ${f.flightNumber||''}）`);
+  add(t('kDepTG'),[f.depTerminal&&(t('kTerminal')+' '+f.depTerminal),f.depGate&&(t('kGate')+' '+f.depGate)].filter(Boolean).join(' · ')||null);
+  add(t('kArrTG'),[f.arrTerminal&&(t('kTerminal')+' '+f.arrTerminal),f.arrGate&&(t('kGate')+' '+f.arrGate)].filter(Boolean).join(' · ')||null);
+  add(t('kTail'),f.tail);
+  add(t('kSeat'),f.seat?f.seat+(f.cabin?` · ${f.cabin}`:''):f.cabin);
+  add(t('kGateDepS'),fmtTs(f.times.gateDepSched));add(t('kGateDepA'),fmtTs(f.times.gateDepActual));
+  add(t('kTakeoffS'),fmtTs(f.times.takeoffSched));add(t('kTakeoffA'),fmtTs(f.times.takeoffActual));
+  add(t('kLandS'),fmtTs(f.times.landingSched));add(t('kLandA'),fmtTs(f.times.landingActual));
+  add(t('kGateArrS'),fmtTs(f.times.gateArrSched));add(t('kGateArrA'),fmtTs(f.times.gateArrActual));
+  const dd=delayMin(f.times.gateDepSched,f.times.gateDepActual);
+  if(dd!==null)add(t('kDepDelay'),fmtDelay(dd));
+  add(t('kNotes'),f.notes);
+  return rows;
 }
-$('#flMore button')?.addEventListener('click',()=>{STATE.listExpanded=true;renderList(STATE.stats,getFiltered());});
+const flightKey=f=>`${f.date}|${f.airlineIcao}|${f.flightNumber||''}|${f.from}|${f.effectiveTo}`;
+function FlightRow({f}){
+  const [open,setOpen]=useState(false);
+  const toggle=()=>setOpen(o=>!o);
+  const cityA=airportCity(f.from),cityB=airportCity(f.effectiveTo);
+  return html`<${Fragment}>
+    <div class=${'fl-row'+(f.canceled?' canceled':'')} role="button" tabindex="0" onClick=${toggle}
+      onKeyDown=${e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();toggle();}}}>
+      <span class="lg"><${Logo} icao=${f.airlineIcao}/></span>
+      <span class="d">${f.date}</span>
+      <span class="no">${flightNo(f)}</span>
+      <span class="rt">${f.from} → ${f.effectiveTo}${(cityA||cityB)?html`<small>${(cityA||f.from)+' — '+(cityB||f.effectiveTo)}</small>`:null}</span>
+      <span class="ac">${f.aircraft||''}</span>
+      <span class="meta">${f.date+' · '+flightNo(f)+(f.aircraft?' · '+f.aircraft:'')}</span>
+      <span class="bdg">${f.divertedTo?html`<span class="badge diverted">${t('badgeDiverted',f.divertedTo)}</span>`:null}${delayBadge(f)}</span>
+    </div>
+    <div class=${'fl-detail'+(open?' open':'')}>${flightDetail(f).map(([k,v],i)=>html`<div class="w" key=${i}>
+      <div class="k">${k}</div><div>${v}</div></div>`)}</div>
+  </${Fragment}>`;
+}
+function FlightLog({flights,expanded}){
+  const sorted=[...flights].sort((a,b)=>b.date<a.date?-1:b.date>a.date?1:0);
+  const shown=expanded?sorted:sorted.slice(0,LIST_LIMIT);
+  return html`<section class="card">
+    <h2><span>${t('hList')}</span> <small>${t('listHint')}</small></h2>
+    <div id="flightList">${shown.map(f=>html`<${FlightRow} key=${flightKey(f)} f=${f}/>`)}</div>
+    ${(sorted.length>LIST_LIMIT&&!expanded)?html`<div class="fl-more">
+      <button type="button" onClick=${()=>{STATE.listExpanded=true;renderWidgets();}}>${t('showAllN',sorted.length)}</button></div>`:null}
+  </section>`;
+}
 
 // ---- footer ----
-function renderFoot(st){
-  const f=$('#foot');f.textContent='';
-  if(st.unknownAirports.size){
-    f.appendChild(el('div','warn-apt',t('footUnknown',[...st.unknownAirports].sort().join('、'))));
-  }
-  f.appendChild(el('div',null,t('footEst')));
+function Footer({st}){
   const src=STATE.fromStorage?t('srcStorage'):STATE.fromDemo?t('srcDemo'):t('srcBuiltin');
-  f.appendChild(el('div',null,t('footSrc',src)));
+  return html`<footer>
+    ${st.unknownAirports.size?html`<div class="warn-apt">${t('footUnknown',[...st.unknownAirports].sort().join('、'))}</div>`:null}
+    <div>${t('footEst')}</div>
+    <div>${t('footSrc',src)}</div>
+  </footer>`;
 }
 
 // ---- status line ----
-function renderStatus(allSt,st){
-  const s=$('#statusLine');s.textContent='';
-  const todayStr=new Date().toISOString().slice(0,10);
-  const upcoming=STATE.flights.filter(f=>!f.canceled&&f.date>todayStr).length;
-  s.appendChild(document.createTextNode(t('loaded',STATE.flights.length,allSt.dateMin,allSt.dateMax)));
-  if(upcoming)s.appendChild(el('span','up',t('upcomingN',upcoming)));
-  if(STATE.yearFilter!==null)s.appendChild(el('b',null,t('filterInfo',STATE.yearFilter,st.total)));
+function StatusLine({allSt,st}){
+  const upcoming=STATE.flights.filter(f=>!f.canceled&&f.date>new Date().toISOString().slice(0,10)).length;
+  return html`<${Fragment}>${t('loaded',STATE.flights.length,allSt.dateMin,allSt.dateMax)}${upcoming?html`<span class="up">${t('upcomingN',upcoming)}</span>`:null}${STATE.yearFilter!==null?html`<b>${t('filterInfo',STATE.yearFilter,st.total)}</b>`:null}</${Fragment}>`;
 }
 
-// ---- render all ----
+// ---- dashboard（地圖以下的所有資料區塊，單一 Preact 根） ----
+function Dashboard({st,allSt,flights}){
+  return html`<${Fragment}>
+    <${StatTiles} st=${st}/>
+    <section class="grid-2">
+      <${YearChart} allSt=${allSt} yearFilter=${STATE.yearFilter}/>
+      <${Punctuality} st=${st}/>
+    </section>
+    <${Rankings} st=${st}/>
+    <${FlightLog} flights=${flights} expanded=${STATE.listExpanded}/>
+    <${Footer} st=${st}/>
+  </${Fragment}>`;
+}
+
+// ---- render（命令式地圖 + Preact widgets）----
+function renderWidgets(){
+  const st=STATE.stats,allSt=STATE.fullStats,flights=STATE.filtered;
+  render(html`<${YearChips} allSt=${allSt} yearFilter=${STATE.yearFilter}/>`,$('#yearFilter'));
+  render(html`<${StatusLine} allSt=${allSt} st=${st}/>`,$('#statusLine'));
+  render(html`<${Dashboard} st=${st} allSt=${allSt} flights=${flights}/>`,$('#dash'));
+}
 function renderAll(){
   const allSt=computeStats(STATE.flights,AIRPORTS);
   const flights=getFiltered();
   const st=STATE.yearFilter===null?allSt:computeStats(flights,AIRPORTS);
-  STATE.stats=st;STATE.fullStats=allSt;
-  renderStatus(allSt,st);renderYearChips(allSt);renderMap(st);renderTiles(st);
-  renderYears(allSt);renderPunct(st);renderRankings(st);renderList(st,flights);renderFoot(st);
+  STATE.stats=st;STATE.fullStats=allSt;STATE.filtered=flights;
+  renderMap(st);
+  renderWidgets();
 }
 
 // ---- data loading ----

@@ -23,14 +23,31 @@ const logos = fs.readFileSync(path.join(SCRATCH, 'logos.gen.js'), 'utf8');
 let csv = fs.readFileSync(path.join(REPO, 'demo.csv'), 'utf8');
 if (csv.charCodeAt(0) === 0xFEFF) csv = csv.slice(1); // strip BOM
 
+// Inlined Preact + htm runtime (UMD builds from node_modules, load order matters:
+// preact defines global `preact`, hooks reads it, htm is standalone). A small glue
+// exposes html()/render()/hooks as globals for the app script. Kept a separate
+// <script> so these globals exist before the app runs. Stays 100% self-contained.
+// Read UMD builds by direct path (their package "exports" fields block require.resolve).
+const NM = path.join(REPO, 'node_modules');
+const req = p => fs.readFileSync(path.join(NM, p), 'utf8');
+const runtime = [
+  req('preact/dist/preact.umd.js'),
+  req('preact/hooks/dist/hooks.umd.js'),
+  req('htm/dist/htm.umd.js'),
+  `(function(g){var p=g.preact,hk=g.preactHooks;g.html=g.htm.bind(p.h);g.render=p.render;` +
+  `g.Fragment=p.Fragment;g.useState=hk.useState;g.useRef=hk.useRef;` +
+  `g.useLayoutEffect=hk.useLayoutEffect;g.useEffect=hk.useEffect;g.useMemo=hk.useMemo;})(window);`,
+].join('\n');
+
 // JSON-encode CSV; escape "</script" so it can't terminate the script block
 const csvJs = JSON.stringify(csv).replace(/<\//g, '<\\/');
 
 let out = template
   .replace('/*__DATASETS__*/', datasets + '\n' + airlines + '\n' + flags + '\n' + logos)
-  .replace('/*__DEFAULT_CSV__*/""', csvJs);
+  .replace('/*__DEFAULT_CSV__*/""', csvJs)
+  .replace('/*__RUNTIME__*/', () => runtime);
 
-if (out.includes('__DATASETS__') || out.includes('__DEFAULT_CSV__')) {
+if (out.includes('__DATASETS__') || out.includes('__DEFAULT_CSV__') || out.includes('__RUNTIME__')) {
   console.error('marker replacement failed'); process.exit(1);
 }
 
