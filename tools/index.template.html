@@ -1493,7 +1493,8 @@ function FlightRow({f}){
   </${Fragment}>`;
 }
 function FlightLog({flights,expanded}){
-  const sorted=[...flights].sort((a,b)=>b.date<a.date?-1:b.date>a.date?1:0);
+  const k=f=>f.date+(f.times.gateDepSched||'');
+  const sorted=[...flights].sort((a,b)=>{const ka=k(a),kb=k(b);return kb<ka?-1:kb>ka?1:0;});
   const shown=expanded?sorted:sorted.slice(0,LIST_LIMIT);
   return html`<section class="card">
     <h2><span>${t('hList')}</span> <small>${t('listHint')}</small></h2>
