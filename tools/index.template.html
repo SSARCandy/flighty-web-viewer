@@ -1,0 +1,1499 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Flighty Web Viewer</title>
+<style>
+:root{
+  color-scheme:dark;
+  --bg:#060a14;
+  --card:#0c1424;
+  --card2:#111c33;
+  --line:rgba(148,178,255,.10);
+  --ink:#eef3ff;
+  --ink2:#a4b4d4;
+  --muted:#67779e;
+  --accent:#45b8ff;
+  --accent-dim:rgba(69,184,255,.16);
+  --amber:#ffc257;
+  --good:#3ddc97;
+  --warn:#ffb454;
+  --bad:#ff6b6b;
+  --land:#1a2a49;
+  --tipbg:#16223c;
+  --tipline:rgba(148,178,255,.25);
+  --ctrlbg:rgba(12,20,36,.88);
+  --overlay:rgba(6,10,20,.82);
+  --ring:rgba(255,255,255,.15);
+  --bgglow:rgba(48,90,180,.16);
+  --hover:rgba(148,178,255,.055);
+  --headdot:#fff;
+  --radius:14px;
+}
+:root[data-theme="light"]{
+  color-scheme:light;
+  --bg:#edf1f8;
+  --card:#ffffff;
+  --card2:#f2f5fb;
+  --line:rgba(22,42,90,.11);
+  --ink:#16233c;
+  --ink2:#44536f;
+  --muted:#7b87a0;
+  --accent:#0b6fd0;
+  --accent-dim:rgba(11,111,208,.10);
+  --amber:#e08b00;
+  --good:#0a8f4e;
+  --warn:#b45309;
+  --bad:#d03b3b;
+  --land:#ccd8ea;
+  --tipbg:#ffffff;
+  --tipline:rgba(22,42,90,.20);
+  --ctrlbg:rgba(255,255,255,.92);
+  --overlay:rgba(238,242,250,.86);
+  --ring:rgba(0,0,0,.13);
+  --bgglow:rgba(90,140,220,.12);
+  --hover:rgba(22,62,140,.05);
+  --headdot:#16233c;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{-webkit-text-size-adjust:100%}
+body{
+  background:var(--bg);
+  background-image:radial-gradient(1200px 500px at 50% -10%,var(--bgglow),transparent 70%);
+  color:var(--ink);
+  font-family:system-ui,-apple-system,"Segoe UI","Noto Sans TC",sans-serif;
+  line-height:1.5;
+}
+.wrap{max-width:1080px;margin:0 auto;padding:20px 16px 60px}
+a{color:var(--accent)}
+
+/* ---------- header ---------- */
+.topbar{display:flex;flex-wrap:wrap;gap:14px;align-items:center;justify-content:space-between;margin:6px 0 18px}
+.topbar h1{font-size:clamp(20px,4vw,27px);font-weight:700;letter-spacing:.2px}
+.mi{width:18px;height:18px;fill:currentColor;display:inline-block;vertical-align:middle}
+.mi-flight{width:24px;height:24px;fill:var(--accent);vertical-align:-3px}
+.map-ctrl button .mi{width:17px;height:17px;display:block;margin:auto}
+#btnTheme .mi{width:18px;height:18px;display:block;margin:auto}
+#dropzone .mi{width:15px;height:15px}
+#statusLine{color:var(--ink2);font-size:13px;margin-top:2px;overflow-wrap:anywhere}
+#statusLine .up{color:var(--amber)}
+.actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+#dropzone{
+  border:1.5px dashed rgba(105,150,255,.45);border-radius:10px;
+  padding:9px 16px;font-size:13px;color:var(--ink2);cursor:pointer;
+  background:rgba(69,184,255,.05);transition:background .15s,border-color .15s;
+  display:flex;gap:8px;align-items:center;
+}
+#dropzone:hover,#dropzone:focus-visible{background:var(--accent-dim);border-color:var(--accent);color:var(--ink)}
+#dropzone .ico{color:var(--accent);font-size:15px}
+#btnReset{background:none;border:1px solid var(--line);color:var(--muted);border-radius:10px;padding:9px 12px;font-size:12px;cursor:pointer}
+#btnReset:hover{color:var(--ink2);border-color:var(--tipline)}
+#btnTheme,#btnLang{background:none;border:1px solid var(--line);border-radius:10px;width:38px;height:37px;cursor:pointer;line-height:1;padding:0;color:var(--ink2)}
+#btnTheme:hover,#btnLang:hover{border-color:var(--accent);color:var(--accent)}
+#btnLang{font-size:12.5px;font-weight:700;font-family:inherit;letter-spacing:.3px}
+#errBanner{
+  background:rgba(255,107,107,.09);border:1px solid rgba(255,107,107,.35);
+  color:var(--bad);border-radius:var(--radius);padding:12px 16px;font-size:13px;margin-bottom:16px;
+  overflow-wrap:anywhere;
+}
+#errBanner b{color:var(--bad)}
+
+/* ---------- cards ---------- */
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:18px}
+.card h2{font-size:14px;font-weight:600;color:var(--ink2);letter-spacing:.4px;margin-bottom:14px}
+.card h2 small{color:var(--muted);font-weight:400;margin-left:6px}
+section{margin-bottom:16px}
+
+/* ---------- year filter chips ---------- */
+.chips-row{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
+.chip{padding:5px 13px;border-radius:16px;border:1px solid var(--line);background:var(--card);color:var(--ink2);font-size:12.5px;cursor:pointer;font-family:inherit}
+.chip:hover{border-color:rgba(69,184,255,.5);color:var(--ink)}
+.chip.on{background:var(--accent-dim);border-color:var(--accent);color:var(--ink)}
+
+/* ---------- map ---------- */
+.map-card{padding:8px;position:relative;overflow:hidden}
+#map{display:block;width:100%;height:auto;touch-action:none;cursor:grab}
+#map.dragging{cursor:grabbing}
+.map-ctrl{position:absolute;top:12px;right:12px;display:flex;gap:6px;z-index:5}
+.map-ctrl button{width:32px;height:32px;border-radius:8px;border:1px solid var(--line);background:var(--ctrlbg);color:var(--ink2);font-size:14px;cursor:pointer;line-height:1;padding:0}
+.map-ctrl button:hover{border-color:var(--accent);color:var(--accent)}
+.map-ctrl button.on{background:var(--accent-dim);border-color:var(--accent);color:var(--accent)}
+.map-ctrl .sep{width:1px;background:var(--line);margin:5px 2px}
+#playCaption{position:absolute;left:50%;transform:translateX(-50%);bottom:30px;background:var(--ctrlbg);border:1px solid var(--tipline);border-radius:20px;padding:6px 14px;font-size:12px;color:var(--ink);z-index:5;white-space:nowrap;max-width:92%;overflow:hidden;text-overflow:ellipsis}
+#map.playing .routes-static{display:none}
+#map.playing .apt{opacity:.18}
+#map.playing .apt-glow{opacity:.06}
+#map .pb-route{fill:none;stroke:var(--accent);stroke-linecap:round;opacity:.85}
+#map .pb-head{fill:var(--headdot)}
+#map .pb-apt{fill:var(--amber)}
+.map-note{position:absolute;left:14px;bottom:10px;font-size:11px;color:var(--muted)}
+.map-note .k{display:inline-block;margin-right:12px}
+.map-note .dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--amber);margin-right:5px;vertical-align:1px}
+.map-note .arc{display:inline-block;width:14px;height:2px;border-radius:2px;background:var(--accent);margin-right:5px;vertical-align:3px}
+#map .land{fill:var(--land)}
+#map .route{fill:none;stroke:var(--accent);stroke-linecap:round}
+#map .route-glow{fill:none;stroke:var(--accent);stroke-linecap:round;opacity:.16}
+#map .route-hit{fill:none;stroke:#fff;stroke-opacity:0;cursor:pointer}
+#map .apt{fill:var(--amber);cursor:pointer}
+#map .apt-glow{fill:var(--amber);opacity:.22;pointer-events:none}
+#map .route-hit:hover+g .route,#map .apt:hover{filter:brightness(1.35)}
+#map circle:focus-visible,#map path:focus-visible{outline:none;stroke:#fff;stroke-width:1}
+
+/* ---------- flags & airline logos ---------- */
+.iconrow{display:flex;flex-wrap:wrap;gap:5px;margin-top:9px;align-items:center}
+.flag{width:22px;height:22px;border-radius:50%;box-shadow:0 0 0 1px var(--ring);flex:none;display:inline-block;overflow:hidden;cursor:default}
+.flag svg{width:100%;height:100%;display:block}
+.alogo{width:22px;height:22px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:8.5px;font-weight:700;flex:none;letter-spacing:.2px;box-shadow:0 0 0 1px var(--ring);cursor:default;overflow:hidden}
+.alogo.img{background:#fff}
+.alogo img{width:86%;height:86%;object-fit:contain;display:block}
+.iconrow .flag,.iconrow .alogo{width:20px;height:20px;font-size:8px}
+
+/* ---------- stat tiles ---------- */
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(136px,1fr));gap:12px}
+.tile{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:14px 16px;min-width:0}
+.tile .lb{font-size:12px;color:var(--muted)}
+.tile .v{font-size:clamp(21px,2.6vw,30px);font-weight:650;margin-top:2px;line-height:1.25;overflow-wrap:anywhere}
+.tile .v.sm{font-size:clamp(18px,1.9vw,23px);padding-top:5px}
+@media(max-width:560px){.tile .v{font-size:20px}.tile .v.sm{font-size:18px}}
+.tile .v small{font-size:13px;font-weight:400;color:var(--ink2);margin-left:2px}
+.tile .sub{font-size:11.5px;color:var(--muted);margin-top:3px}
+.tile.hero{background:linear-gradient(135deg,rgba(69,184,255,.14),rgba(69,184,255,.03) 55%),var(--card)}
+.tile.hero .v{color:var(--accent);font-size:clamp(26px,4vw,38px)}
+
+/* ---------- grids ---------- */
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:stretch}
+@media(max-width:760px){.grid-2{grid-template-columns:1fr}}
+
+/* ---------- year chart ---------- */
+#yearChart{display:flex;align-items:flex-end;gap:6px;height:170px;padding-top:18px}
+.ybar{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;min-width:0;position:relative;cursor:pointer;border-radius:6px}
+.ybar.sel{background:rgba(69,184,255,.10)}
+.ybar.dim .fill{opacity:.3}
+.ybar.dim .yl,.ybar.dim .vl{opacity:.5}
+.ybar:hover,.ybar:focus-visible{background:var(--hover);outline:none}
+.ybar .fill{width:min(24px,80%);background:var(--accent);border-radius:4px 4px 0 0;min-height:0}
+.ybar.zero .fill{height:2px;background:rgba(148,178,255,.18);border-radius:1px}
+.ybar .yl{font-size:10.5px;color:var(--muted);margin-top:6px;transform:translateX(0)}
+.ybar .vl{font-size:11px;color:var(--ink2);margin-bottom:4px;font-weight:600}
+@media(max-width:560px){.ybar .yl{writing-mode:vertical-rl;font-size:10px;margin-top:4px}}
+.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+
+/* ---------- punctuality ---------- */
+.punct-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.pt{background:var(--card2);border-radius:10px;padding:12px 14px}
+.pt .lb{font-size:11.5px;color:var(--muted)}
+.pt .v{font-size:22px;font-weight:650;margin-top:1px}
+.pt .v.good{color:var(--good)}
+.pt .v.warn{color:var(--warn)}
+.pt .v.bad{color:var(--bad)}
+.pt .sub{font-size:11px;color:var(--muted);margin-top:2px}
+.punct-note{font-size:11px;color:var(--muted);margin-top:10px}
+
+/* ---------- rankings ---------- */
+.rank-item{display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--line);font-size:13.5px}
+.rank-item:last-child{border-bottom:none}
+.rank-item .n{color:var(--muted);font-size:12px;width:16px;flex:none;text-align:right}
+.rank-item .name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rank-item .name small{color:var(--muted);margin-left:6px;font-size:11.5px}
+.rank-item .cnt{color:var(--ink2);font-weight:600;flex:none}
+.rank-item .cnt small{color:var(--muted);font-weight:400;margin-left:3px}
+.share{height:4px;border-radius:2px;background:var(--accent-dim);flex:none;width:72px;overflow:hidden}
+.share i{display:block;height:100%;background:var(--accent);border-radius:2px}
+@media(max-width:420px){.share{width:46px}}
+
+/* ---------- flight list ---------- */
+#flightList{font-size:13.5px}
+.fl-row{display:flex;align-items:center;gap:10px;padding:9px 6px;border-bottom:1px solid var(--line);cursor:pointer;flex-wrap:wrap}
+.fl-row:hover{background:var(--hover)}
+.fl-row .lg{flex:none;display:flex}
+.fl-row .lg .alogo{width:24px;height:24px;font-size:8.5px}
+.fl-row .d{color:var(--muted);width:88px;flex:none;font-variant-numeric:tabular-nums}
+.fl-row .no{width:74px;flex:none;font-weight:600;color:var(--accent)}
+.fl-row .rt{flex:1;min-width:150px}
+.fl-row .rt small{color:var(--muted);margin-left:8px}
+.fl-row .meta{display:none}
+.fl-row .ac{color:var(--ink2);font-size:12px;flex:none;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.badge{flex:none;font-size:11px;padding:2px 8px;border-radius:20px;font-weight:600}
+.badge.early{background:rgba(61,220,151,.12);color:var(--good)}
+.badge.ontime{background:rgba(61,220,151,.10);color:var(--good)}
+.badge.late{background:rgba(255,180,84,.13);color:var(--warn)}
+.badge.verylate{background:rgba(255,107,107,.13);color:var(--bad)}
+.badge.canceled{background:rgba(255,107,107,.16);color:var(--bad)}
+.badge.upcoming{background:rgba(69,184,255,.13);color:var(--accent)}
+.badge.diverted{background:rgba(255,180,84,.15);color:var(--warn)}
+.fl-row.canceled .rt,.fl-row.canceled .no{text-decoration:line-through;opacity:.65}
+.fl-row .bdg{display:flex;gap:6px;flex:none;margin-left:auto}
+/* 手機：卡片式排版（logo｜航線＋城市＋日期航班機型｜延誤標記） */
+@media(max-width:620px){
+  .fl-row{
+    display:grid;grid-template-columns:auto 1fr auto;gap:1px 12px;align-items:center;
+    background:var(--card2);border:none;border-radius:12px;margin-bottom:8px;padding:11px 13px;
+  }
+  .fl-row:hover{background:var(--card2)}
+  .fl-row .d,.fl-row .no,.fl-row .ac{display:none}
+  .fl-row .lg{grid-area:1/1/3/2}
+  .fl-row .lg .alogo{width:30px;height:30px;font-size:10px}
+  .fl-row .rt{grid-area:1/2/2/3;min-width:0;font-weight:600;font-size:14.5px}
+  .fl-row .rt small{display:block;font-weight:400;font-size:11.5px;margin:1px 0 2px}
+  .fl-row .meta{grid-area:2/2/3/3;display:block;font-size:11.5px;color:var(--muted);overflow-wrap:anywhere}
+  .fl-row .bdg{grid-area:1/3/3/4;align-self:center;justify-self:end;margin-left:0;flex-direction:column;align-items:flex-end;gap:4px}
+  .fl-row.canceled .meta{text-decoration:line-through;opacity:.65}
+  .fl-detail{margin:-4px 0 8px;border-radius:0 0 12px 12px}
+}
+.fl-detail{display:none;background:var(--card2);border-radius:10px;margin:2px 0 8px;padding:12px 14px;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px 18px;font-size:12.5px}
+.fl-detail.open{display:grid}
+.fl-detail .k{color:var(--muted);font-size:11px}
+.fl-detail .w{min-width:0}
+.fl-more{text-align:center;margin-top:12px}
+.fl-more button{background:none;border:1px solid var(--line);color:var(--ink2);padding:8px 22px;border-radius:20px;cursor:pointer;font-size:13px}
+.fl-more button:hover{border-color:var(--accent);color:var(--accent)}
+
+/* ---------- footer ---------- */
+footer{color:var(--muted);font-size:11.5px;margin-top:26px;line-height:1.8}
+footer .warn-apt{color:var(--warn)}
+
+/* ---------- drop overlay ---------- */
+#dropOverlay{
+  position:fixed;inset:0;background:var(--overlay);backdrop-filter:blur(3px);
+  display:none;align-items:center;justify-content:center;z-index:50;pointer-events:none;
+}
+#dropOverlay.on{display:flex}
+#dropOverlay>div{
+  border:2px dashed var(--accent);border-radius:20px;padding:40px 70px;
+  color:var(--accent);font-size:20px;font-weight:600;background:rgba(69,184,255,.06);
+}
+
+/* ---------- tooltip ---------- */
+#tooltip{
+  position:fixed;z-index:60;display:none;
+  background:var(--tipbg);border:1px solid var(--tipline);border-radius:8px;
+  padding:7px 11px;font-size:12px;color:var(--ink);pointer-events:none;max-width:260px;
+  box-shadow:0 6px 24px rgba(0,0,0,.5);
+}
+#tooltip .tv{font-weight:650;font-size:13px}
+#tooltip .tl{color:var(--ink2);font-size:11.5px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="topbar">
+    <div>
+      <h1><svg class="mi mi-flight" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 16v-2l-8-5V3.5c0-.83-.67-1.5-1.5-1.5S10 2.67 10 3.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z"/></svg> Flighty Web Viewer</h1>
+      <p id="statusLine">…</p>
+    </div>
+    <div class="actions">
+      <button id="btnLang" type="button" aria-label="Switch language">EN</button>
+      <button id="btnTheme" type="button" aria-label="切換深淺色主題"></button>
+      <button id="dropzone" type="button" aria-label="更新資料：拖曳 Flighty CSV 到頁面任意處，或點擊選擇檔案">
+        <svg class="mi ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 16h6v-6h4l-7-7-7 7h4v6zm-4 2h14v2H5v-2z"/></svg> <span id="dropzoneText">更新資料 — 拖入或點選 CSV</span>
+      </button>
+      <button id="btnReset" type="button" hidden>還原內建資料</button>
+      <input id="fileInput" type="file" accept=".csv,text/csv,text/plain" hidden>
+    </div>
+  </header>
+
+  <div id="errBanner" hidden></div>
+
+  <section class="chips-row" id="yearFilter" aria-label="年份篩選"></section>
+
+  <section class="card map-card">
+    <svg id="map" viewBox="0 30 1000 382" role="img" aria-label="世界地圖航線圖"></svg>
+    <div class="map-ctrl">
+      <button id="btnPlay" type="button" title="播放航跡（依時間順序）" aria-label="播放航跡"></button>
+      <button id="btnSpeed" type="button" title="播放速度" aria-label="播放速度">1×</button>
+      <span class="sep"></span>
+      <button id="btnZoomIn" type="button" title="放大" aria-label="放大地圖"><svg class="mi" viewBox="0 0 24 24" aria-hidden="true"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg></button>
+      <button id="btnZoomOut" type="button" title="縮小" aria-label="縮小地圖"><svg class="mi" viewBox="0 0 24 24" aria-hidden="true"><path d="M19 13H5v-2h14v2z"/></svg></button>
+      <button id="btnZoomReset" type="button" title="重設視角" aria-label="重設地圖視角"><svg class="mi" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5v4h2V5h4V3H5c-1.1 0-2 .9-2 2zm2 10H3v4c0 1.1.9 2 2 2h4v-2H5v-4zm14 4h-4v2h4c1.1 0 2-.9 2-2v-4h-2v4zm0-16h-4v2h4v4h2V5c0-1.1-.9-2-2-2z"/></svg></button>
+    </div>
+    <div id="playCaption" hidden></div>
+    <div class="map-note">
+      <span class="k"><span class="arc"></span><span id="legendRoute">航線（次數越多越亮越粗）</span></span><span class="k"><span class="dot"></span><span id="legendApt">機場（大小＝起降次數）</span></span>
+    </div>
+  </section>
+
+  <section id="statTiles" class="tiles" aria-label="飛行統計"></section>
+
+  <section class="grid-2">
+    <div class="card">
+      <h2><span id="hYears">年度航班</span></h2>
+      <div id="yearChart"></div>
+      <table class="sr-only" id="yearTable"><caption>每年航班數</caption></table>
+    </div>
+    <div class="card">
+      <h2><span id="hPunct">準點分析</span> <small id="punctNote"></small></h2>
+      <div class="punct-grid" id="punctGrid"></div>
+      <div class="punct-note" id="punctDefNote">準點定義：抵達登機門延誤 ≤ 15 分鐘。提早以綠色負數呈現。各項僅統計具實際時間戳的航班。</div>
+    </div>
+  </section>
+
+  <section class="grid-2">
+    <div class="card"><h2><span id="hRoutes">最常飛航線</span></h2><div id="rankRoutes"></div></div>
+    <div class="card"><h2><span id="hAirlines">最常搭航空公司</span></h2><div id="rankAirlines"></div></div>
+  </section>
+  <section class="grid-2">
+    <div class="card"><h2><span id="hAircraft">最常搭機型</span> <small id="acCount"></small></h2><div id="rankAircraft"></div></div>
+    <div class="card"><h2><span id="hAirports">最常出入機場</span> <small id="apCount"></small></h2><div id="rankAirports"></div></div>
+  </section>
+
+  <section class="card">
+    <h2><span id="hList">航班列表</span> <small id="listHint">點擊展開明細</small></h2>
+    <div id="flightList"></div>
+    <div class="fl-more" id="flMore" hidden><button type="button">顯示全部</button></div>
+  </section>
+
+  <footer id="foot"></footer>
+</div>
+
+<div id="dropOverlay" aria-hidden="true"><div id="dropOverlayText">放開以載入 CSV</div></div>
+<div id="tooltip" role="tooltip"></div>
+
+<script>
+/*__DATASETS__*/
+</script>
+<script>
+const DEFAULT_CSV = /*__DEFAULT_CSV__*/"";
+</script>
+<script>
+"use strict";
+/*__LOGIC_START__*/
+// ============ 純邏輯區（無 DOM，可於 Node 測試） ============
+
+// RFC 4180 CSV 解析（引號欄位可含逗號與換行）
+function parseCSV(text){
+  const rows=[];let row=[],field='',inQ=false;
+  for(let i=0;i<text.length;i++){
+    const c=text[i];
+    if(inQ){
+      if(c==='"'){ if(text[i+1]==='"'){field+='"';i++;} else inQ=false; }
+      else field+=c;
+    }
+    else if(c==='"') inQ=true;
+    else if(c===','){row.push(field);field='';}
+    else if(c==='\n'){row.push(field);rows.push(row);row=[];field='';}
+    else if(c!=='\r') field+=c;
+  }
+  if(field!==''||row.length){row.push(field);rows.push(row);}
+  // 去除尾端全空列
+  while(rows.length&&rows[rows.length-1].every(f=>f==='')) rows.pop();
+  return rows;
+}
+
+// "YYYY-MM-DDTHH:MM(:SS)?" → 分鐘數（無時區、以 UTC 曆法計，僅供差值運算）；無效→null
+function tsToMin(s){
+  if(!s) return null;
+  const m=/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?/.exec(s.trim());
+  if(!m) return null;
+  return Date.UTC(+m[1],+m[2]-1,+m[3],+m[4],+m[5],+(m[6]||0))/60000;
+}
+
+const REQUIRED_HEADERS=['Date','Airline','Flight','From','To'];
+
+// rows → {ok, flights, headers, skipped} ；表頭不含必要欄位 → ok:false
+function normalizeFlights(rows){
+  if(!rows.length) return {ok:false,headers:[],flights:[],skipped:0};
+  const headers=rows[0].map(h=>h.trim());
+  const idx={};headers.forEach((h,i)=>{if(!(h in idx))idx[h]=i;});
+  const missing=REQUIRED_HEADERS.filter(h=>!(h in idx));
+  if(missing.length) return {ok:false,headers,missing,flights:[],skipped:0};
+  const g=(r,name)=>{const i=idx[name];const v=i===undefined?'':(r[i]||'').trim();return v===''?null:v;};
+  const flights=[];let skipped=0;
+  for(let i=1;i<rows.length;i++){
+    const r=rows[i];
+    const date=g(r,'Date'),from=g(r,'From'),to=g(r,'To'),airline=g(r,'Airline');
+    if(!date||!from||!to||!airline||!/^\d{4}-\d{2}-\d{2}$/.test(date)){skipped++;continue;}
+    const t=n=>g(r,n);
+    flights.push({
+      date,
+      airlineIcao:airline.toUpperCase(),
+      flightNumber:t('Flight'),
+      from:from.toUpperCase(),to:to.toUpperCase(),
+      divertedTo:(t('Diverted To')||'')?.toUpperCase()||null,
+      effectiveTo:(t('Diverted To')||to).toUpperCase(),
+      canceled:/^true$/i.test(t('Canceled')||''),
+      times:{
+        gateDepSched:t('Gate Departure (Scheduled)'),gateDepActual:t('Gate Departure (Actual)'),
+        takeoffSched:t('Take off (Scheduled)'),takeoffActual:t('Take off (Actual)'),
+        landingSched:t('Landing (Scheduled)'),landingActual:t('Landing (Actual)'),
+        gateArrSched:t('Gate Arrival (Scheduled)'),gateArrActual:t('Gate Arrival (Actual)')
+      },
+      aircraft:t('Aircraft Type Name'),tail:t('Tail Number'),
+      depTerminal:t('Dep Terminal'),depGate:t('Dep Gate'),
+      arrTerminal:t('Arr Terminal'),arrGate:t('Arr Gate'),
+      seat:t('Seat'),cabin:t('Cabin Class'),pnr:t('PNR'),notes:t('Notes')
+    });
+  }
+  return {ok:true,headers,flights,skipped};
+}
+
+const EARTH_R=6371, EARTH_CIRC=40075;
+const rad=d=>d*Math.PI/180;
+
+function haversineKm(a,b){ // a,b: [lat,lon]
+  const dLat=rad(b[0]-a[0]),dLon=rad(b[1]-a[1]);
+  const h=Math.sin(dLat/2)**2+Math.cos(rad(a[0]))*Math.cos(rad(b[0]))*Math.sin(dLon/2)**2;
+  return 2*EARTH_R*Math.asin(Math.min(1,Math.sqrt(h)));
+}
+
+// 大圓插值（slerp）→ [lat,lon] 點列
+function greatCirclePoints(a,b,n){
+  n=n||64;
+  const la1=rad(a[0]),lo1=rad(a[1]),la2=rad(b[0]),lo2=rad(b[1]);
+  const v1=[Math.cos(la1)*Math.cos(lo1),Math.cos(la1)*Math.sin(lo1),Math.sin(la1)];
+  const v2=[Math.cos(la2)*Math.cos(lo2),Math.cos(la2)*Math.sin(lo2),Math.sin(la2)];
+  const dot=Math.max(-1,Math.min(1,v1[0]*v2[0]+v1[1]*v2[1]+v1[2]*v2[2]));
+  const w=Math.acos(dot);
+  if(w<1e-9) return [a,b];
+  const sw=Math.sin(w),pts=[];
+  for(let i=0;i<=n;i++){
+    const t=i/n,A=Math.sin((1-t)*w)/sw,B=Math.sin(t*w)/sw;
+    const x=A*v1[0]+B*v2[0],y=A*v1[1]+B*v2[1],z=A*v1[2]+B*v2[2];
+    pts.push([Math.atan2(z,Math.hypot(x,y))*180/Math.PI,Math.atan2(y,x)*180/Math.PI]);
+  }
+  return pts;
+}
+
+// 依 ±180° 反子午線切段：回傳一至多段點列
+function splitAntimeridian(pts){
+  const segs=[];let cur=[pts[0]];
+  for(let i=1;i<pts.length;i++){
+    const p=pts[i-1],q=pts[i];
+    let dLon=q[1]-p[1];
+    if(Math.abs(dLon)>180){ // 跨越
+      const lonP=p[1],lonQ=q[1]+(dLon>0?-360:360); // q 展開至 p 同側
+      const t=(lonP>0?180-lonP:-180-lonP)/(lonQ-lonP);
+      const latX=p[0]+(q[0]-p[0])*t;
+      const edge=lonP>0?180:-180;
+      cur.push([latX,edge]);segs.push(cur);
+      cur=[[latX,-edge],q];
+    } else cur.push(q);
+  }
+  segs.push(cur);
+  return segs;
+}
+
+// 依機場 UTC 偏移將當地時間戳差轉為實際分鐘數；資料不足→null
+function utcDiffMin(tsA,offA,tsB,offB){
+  const a=tsToMin(tsA),b=tsToMin(tsB);
+  if(a===null||b===null||offA===undefined||offB===undefined) return null;
+  return (b-offB*60)-(a-offA*60);
+}
+
+// 單筆飛行時數（小時）：實際起降 → 實際登機門(block) → 距離估算；皆不可→null
+// airports: IATA → [lat,lon,utcOff,...]
+function flightHours(f,airports){
+  const A=airports[f.from],B=airports[f.effectiveTo];
+  if(A&&B){
+    let m=utcDiffMin(f.times.takeoffActual,A[2],f.times.landingActual,B[2]);
+    if(m!==null&&m>0&&m<26*60) return {h:m/60,src:'air'};
+    m=utcDiffMin(f.times.gateDepActual,A[2],f.times.gateArrActual,B[2]);
+    if(m!==null&&m>0&&m<26*60) return {h:m/60,src:'block'};
+    return {h:haversineKm([A[0],A[1]],[B[0],B[1]])/750+0.4,src:'dist'};
+  }
+  return null;
+}
+
+function delayMin(sched,actual){
+  const s=tsToMin(sched),a=tsToMin(actual);
+  return (s===null||a===null)?null:a-s;
+}
+
+// 全部統計
+function computeStats(flights,airports){
+  const active=flights.filter(f=>!f.canceled);
+  const st={
+    total:active.length,canceled:flights.length-active.length,
+    dateMin:null,dateMax:null,
+    distanceKm:0,distExcluded:0,
+    hours:0,hoursBySrc:{air:0,block:0,dist:0},hoursExcluded:0,
+    airports:new Set(),countries:new Set(),airlines:new Set(),aircraft:new Set(),
+    unknownAirports:new Set(),
+    routes:new Map(),airlineCount:new Map(),aircraftCount:new Map(),airportCount:new Map(),
+    years:new Map(),
+    depDelays:[],arrDelays:[],maxArrDelay:null,maxDepDelay:null,
+  };
+  for(const f of flights){
+    if(st.dateMin===null||f.date<st.dateMin)st.dateMin=f.date;
+    if(st.dateMax===null||f.date>st.dateMax)st.dateMax=f.date;
+  }
+  const bump=(m,k,n)=>m.set(k,(m.get(k)||0)+(n||1));
+  for(const f of active){
+    const A=airports[f.from],B=airports[f.effectiveTo];
+    if(!A)st.unknownAirports.add(f.from);
+    if(!B)st.unknownAirports.add(f.effectiveTo);
+    st.airports.add(f.from);st.airports.add(f.effectiveTo);
+    if(A)st.countries.add(A[4]);
+    if(B)st.countries.add(B[4]);
+    st.airlines.add(f.airlineIcao);
+    if(f.aircraft)st.aircraft.add(f.aircraft);
+    if(A&&B){
+      st.distanceKm+=haversineKm([A[0],A[1]],[B[0],B[1]]);
+    } else st.distExcluded++;
+    const fh=flightHours(f,airports);
+    if(fh){st.hours+=fh.h;st.hoursBySrc[fh.src]++;}
+    else st.hoursExcluded++;
+    const key=[f.from,f.effectiveTo].sort().join('-');
+    bump(st.routes,key);
+    bump(st.airlineCount,f.airlineIcao);
+    if(f.aircraft)bump(st.aircraftCount,f.aircraft);
+    bump(st.airportCount,f.from);bump(st.airportCount,f.effectiveTo);
+    bump(st.years,+f.date.slice(0,4));
+    const dd=delayMin(f.times.gateDepSched,f.times.gateDepActual);
+    if(dd!==null){
+      st.depDelays.push(dd);
+      if(!st.maxDepDelay||dd>st.maxDepDelay.min)st.maxDepDelay={min:dd,f};
+    }
+    const ad=delayMin(f.times.gateArrSched,f.times.gateArrActual);
+    if(ad!==null){
+      st.arrDelays.push(ad);
+      if(!st.maxArrDelay||ad>st.maxArrDelay.min)st.maxArrDelay={min:ad,f};
+    }
+  }
+  // 年度補 0
+  if(st.years.size){
+    const ys=[...st.years.keys()],y0=Math.min(...ys),y1=Math.max(...ys);
+    st.yearRange=[];
+    for(let y=y0;y<=y1;y++)st.yearRange.push([y,st.years.get(y)||0]);
+  } else st.yearRange=[];
+  const avg=a=>a.length?a.reduce((x,y)=>x+y,0)/a.length:null;
+  st.avgDep=avg(st.depDelays);st.avgArr=avg(st.arrDelays);
+  st.onTime=st.arrDelays.length?st.arrDelays.filter(d=>d<=15).length/st.arrDelays.length:null;
+  return st;
+}
+
+function topN(map,n){return [...map.entries()].sort((a,b)=>b[1]-a[1]||(a[0]<b[0]?-1:1)).slice(0,n);}
+/*__LOGIC_END__*/
+
+// ============ 呈現層 ============
+const $=s=>document.querySelector(s);
+const el=(tag,cls,text)=>{const e=document.createElement(tag);if(cls)e.className=cls;if(text!==undefined)e.textContent=text;return e;};
+
+// ---- Material Icons v3（內嵌 path，不用 emoji / 外部字型） ----
+const MI={
+  flight:'M21 16v-2l-8-5V3.5c0-.83-.67-1.5-1.5-1.5S10 2.67 10 3.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z',
+  light:'M6.76 4.84l-1.8-1.79-1.41 1.41 1.79 1.79 1.42-1.41zM4 10.5H1v2h3v-2zm9-9.95h-2V3.5h2V.55zm7.45 3.91l-1.41-1.41-1.79 1.79 1.41 1.41 1.79-1.79zm-3.21 13.7l1.79 1.8 1.41-1.41-1.8-1.79-1.4 1.4zM20 10.5v2h3v-2h-3zm-8-5c-3.31 0-6 2.69-6 6s2.69 6 6 6 6-2.69 6-6-2.69-6-6-6zm-1 16.95h2V19.5h-2v2.95zm-7.45-3.91l1.41 1.41 1.79-1.8-1.41-1.41-1.79 1.8z',
+  dark:'M10 2c-1.82 0-3.53.5-5 1.35C7.99 5.08 10 8.3 10 12s-2.01 6.92-5 8.65C6.47 21.5 8.18 22 10 22c5.52 0 10-4.48 10-10S15.52 2 10 2z',
+  play:'M8 5v14l11-7z',
+  pause:'M6 19h4V5H6v14zm8-14v14h4V5h-4z',
+  replay:'M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z',
+  add:'M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z',
+  remove:'M19 13H5v-2h14v2z',
+  fit:'M3 5v4h2V5h4V3H5c-1.1 0-2 .9-2 2zm2 10H3v4c0 1.1.9 2 2 2h4v-2H5v-4zm14 4h-4v2h4c1.1 0 2-.9 2-2v-4h-2v4zm0-16h-4v2h4v4h2V5c0-1.1-.9-2-2-2z',
+  upload:'M9 16h6v-6h4l-7-7-7 7h4v6zm-4 2h14v2H5v-2z'
+};
+function miSvg(name){
+  const s=document.createElementNS('http://www.w3.org/2000/svg','svg');
+  s.setAttribute('viewBox','0 0 24 24');s.setAttribute('class','mi');s.setAttribute('aria-hidden','true');
+  const p=document.createElementNS('http://www.w3.org/2000/svg','path');
+  p.setAttribute('d',MI[name]);s.appendChild(p);
+  return s;
+}
+function setBtnIcon(btn,name){btn.textContent='';btn.appendChild(miSvg(name));}
+
+const AIRLINE_INFO=AIRLINES; // ICAO → [IATA, 中文名, 英文名, 品牌色(可省略)]
+
+// ---- 簡化圓形國旗（16px 圓內的幾何近似；查無 → 灰底字母） ----
+const FLAG_DEFS={
+TW:['canton','#fe0000','#000095','#fff'],JP:['dot','#fff','#bc002d'],KR:['taegeuk'],
+CN:['dot','#de2910','#ffde00'],HK:['dot','#de2910','#fff'],MO:['dot','#00785e','#fff'],
+SG:['h2dot','#ed2939','#fff'],MY:['stripesCanton','#cc0001','#fff','#010066','#fc0'],
+TH:['h',['#a51931','#f4f5f8','#2d2a4a','#f4f5f8','#a51931']],VN:['dot','#da251d','#ffef00'],
+PH:['triH','#0038a8','#ce1126','#fff'],ID:['h',['#ce1126','#fff']],
+IN:['h',['#ff9933','#fff','#128807'],'#000080'],LK:['dot','#8d2029','#eb7400'],
+NP:['dot','#dc143c','#fff'],BD:['dot','#006a4e','#f42a41'],PK:['dot','#01411c','#fff'],
+KH:['h',['#032ea1','#e00025','#032ea1'],'#fff'],LA:['h',['#ce1126','#002868','#ce1126'],'#fff'],
+MM:['h',['#fecb00','#34b233','#ea2839']],BN:['h',['#f7e017','#fff','#000']],
+AE:['barH','#ef3340',['#009739','#fff','#000']],QA:['v',['#fff','#8d1b3d','#8d1b3d']],
+SA:['dot','#006c35','#fff'],TR:['dot','#e30a17','#fff'],IL:['h',['#fff','#0038b8','#fff'],'#0038b8'],
+EG:['h',['#ce1126','#fff','#000'],'#c09300'],OM:['h',['#fff','#db161b','#008000']],KW:['h',['#007a3d','#fff','#ce1126']],
+GB:['union'],FR:['v',['#002395','#fff','#ed2939']],DE:['h',['#000','#dd0000','#ffce00']],
+IT:['v',['#009246','#fff','#ce2b37']],ES:['h',['#aa151b','#f1bf00','#aa151b']],
+PT:['v',['#046a38','#da291c','#da291c']],NL:['h',['#ae1c28','#fff','#21468b']],
+BE:['v',['#000','#fdda24','#ef3340']],CH:['cross','#da291c','#fff'],AT:['h',['#ed2939','#fff','#ed2939']],
+GR:['cross','#0d5eaf','#fff'],CY:['dot','#fff','#d57800'],IS:['nordic','#02529c','#fff','#dc1e35'],
+NO:['nordic','#ba0c2f','#fff','#00205b'],SE:['nordic','#006aa7','#006aa7','#fecc02'],
+DK:['nordic','#c8102e','#c8102e','#fff'],FI:['nordic','#fff','#fff','#002f6c'],
+IE:['v',['#009a44','#fff','#ff8200']],PL:['h',['#fff','#dc143c']],
+CZ:['triH','#fff','#d7141a','#11457e'],HU:['h',['#ce2939','#fff','#477050']],
+RU:['h',['#fff','#0039a6','#d52b1e']],UA:['h',['#005bbb','#ffd500']],
+RO:['v',['#002b7f','#fcd116','#ce1126']],HR:['h',['#ff0000','#fff','#171796']],MT:['v',['#fff','#cf142b']],
+AU:['canton','#00247d','#012169','#fff'],NZ:['canton','#00247d','#012169','#cc142b'],
+FJ:['canton','#68bfe5','#012169','#fff'],PG:['dot','#ce1126','#ffcc00'],
+US:['stripesCanton','#b22234','#fff','#3c3b6e'],CA:['v',['#d80621','#fff','#d80621'],'#d80621'],
+MX:['v',['#006847','#fff','#ce1126'],'#6f4e37'],BR:['dot','#009c3b','#ffdf00'],
+AR:['h',['#74acdf','#fff','#74acdf'],'#f6b40e'],CL:['stripesCanton2','#fff','#d52b1e','#0039a6','#fff'],
+PE:['v',['#d91023','#fff','#d91023']],CO:['h',['#fcd116','#003893','#ce1126']],
+ZA:['h',['#de3831','#007a4d','#002395']],KE:['h',['#000','#bb0000','#006600']],
+ET:['h',['#078930','#fcdd09','#da121a'],'#0f47af'],MA:['dot','#c1272d','#006233'],TN:['dot','#e70013','#fff']
+};
+function flagEl(cc){
+  const wrap=el('span','flag');
+  // 內嵌 circle-flags（https://github.com/HatScripts/circle-flags）優先；
+  // 查無 → 幾何近似 → 灰底字母。皆為統一圓形。
+  if(typeof FLAG_SVGS!=='undefined'&&FLAG_SVGS[cc]){wrap.innerHTML=FLAG_SVGS[cc];return wrap;}
+  const svg=document.createElementNS(SVG_NS,'svg');
+  svg.setAttribute('viewBox','0 0 20 20');
+  const add=(tag,at)=>{const e=document.createElementNS(SVG_NS,tag);for(const k in at)e.setAttribute(k,at[k]);svg.appendChild(e);return e;};
+  const rect=(x,y,w,h,f)=>add('rect',{x,y,width:w,height:h,fill:f});
+  const dot=(f,r,cx,cy)=>add('circle',{cx:cx==null?10:cx,cy:cy==null?10:cy,r:r||4.6,fill:f});
+  const d=FLAG_DEFS[cc];
+  if(!d){
+    rect(0,0,20,20,'#3a4560');
+    const t=add('text',{x:10,y:13.6,'text-anchor':'middle','font-size':'8.5',fill:'#dfe6f5','font-weight':'600'});
+    t.textContent=cc;wrap.appendChild(svg);return wrap;
+  }
+  const [type,...a]=d;
+  if(type==='h'){const cs=a[0],hh=20/cs.length;cs.forEach((c,i)=>rect(0,i*hh,20,hh+.3,c));if(a[1])dot(a[1],3.4);}
+  else if(type==='v'){const cs=a[0],w=20/cs.length;cs.forEach((c,i)=>rect(i*w,0,w+.3,20,c));if(a[1])dot(a[1],3.2);}
+  else if(type==='dot'){rect(0,0,20,20,a[0]);dot(a[1],5);}
+  else if(type==='h2dot'){rect(0,0,20,10,a[0]);rect(0,10,20,10,a[1]);dot(a[1],2.6,6.5,5);}
+  else if(type==='canton'){rect(0,0,20,20,a[0]);rect(0,0,10,10,a[1]);if(a[2])dot(a[2],2.6,5,5);}
+  else if(type==='stripesCanton'){for(let i=0;i<6;i++)rect(0,i*20/6,20,20/6+.3,i%2?a[1]:a[0]);rect(0,0,10,10,a[2]);if(a[3])dot(a[3],2.4,5,5);}
+  else if(type==='stripesCanton2'){rect(0,0,20,10,a[0]);rect(0,10,20,10,a[1]);rect(0,0,10,10,a[2]);if(a[3])dot(a[3],2.6,5,5);}
+  else if(type==='triH'){rect(0,0,20,10,a[0]);rect(0,10,20,10,a[1]);add('path',{d:'M0 0L11 10L0 20Z',fill:a[2]});}
+  else if(type==='barH'){const cs=a[1],hh=20/cs.length;cs.forEach((c,i)=>rect(0,i*hh,20,hh+.3,c));rect(0,0,7,20,a[0]);}
+  else if(type==='cross'){rect(0,0,20,20,a[0]);rect(8.4,0,3.2,20,a[1]);rect(0,8.4,20,3.2,a[1]);}
+  else if(type==='nordic'){rect(0,0,20,20,a[0]);rect(5.4,0,5.2,20,a[1]);rect(0,7.4,20,5.2,a[1]);rect(6.6,0,2.8,20,a[2]);rect(0,8.6,20,2.8,a[2]);}
+  else if(type==='union'){
+    rect(0,0,20,20,'#012169');
+    add('path',{d:'M0 0L20 20M20 0L0 20',stroke:'#fff','stroke-width':'4'});
+    add('path',{d:'M0 0L20 20M20 0L0 20',stroke:'#C8102E','stroke-width':'1.6'});
+    rect(8,0,4,20,'#fff');rect(0,8,20,4,'#fff');rect(8.8,0,2.4,20,'#C8102E');rect(0,8.8,20,2.4,'#C8102E');
+  }
+  else if(type==='taegeuk'){
+    rect(0,0,20,20,'#fff');
+    add('path',{d:'M4.5 10A5.5 5.5 0 0 1 15.5 10Z',fill:'#cd2e3a'});
+    add('path',{d:'M15.5 10A5.5 5.5 0 0 1 4.5 10Z',fill:'#0047a0'});
+  }
+  wrap.appendChild(svg);
+  return wrap;
+}
+
+// ---- 航空公司圓形徽章（品牌色 + IATA 代碼；無品牌色 → 依 ICAO 產生固定色） ----
+function airlineColor(icao){
+  const a=AIRLINE_INFO[icao];
+  if(a&&a[3])return a[3];
+  let h=0;for(const c of icao)h=(h*31+c.charCodeAt(0))>>>0;
+  return `hsl(${h%360} 52% 40%)`;
+}
+function darkText(color){ // 亮底 → 深色字
+  const m=/^#([0-9a-f]{6})$/i.exec(color);
+  if(!m)return false;
+  const n=parseInt(m[1],16);
+  const L=0.2126*(n>>16&255)+0.7152*(n>>8&255)+0.0722*(n&255);
+  return L>150;
+}
+function logoEl(icao){
+  // 真實航空公司 logo（Jxck-S/airline-logos, FlightAware 版）優先；查無 → 品牌色字母徽章
+  if(typeof LOGO_URIS!=='undefined'&&LOGO_URIS[icao]){
+    const d=el('span','alogo img');
+    const img=document.createElement('img');
+    img.src=LOGO_URIS[icao];img.alt='';img.loading='lazy';
+    d.appendChild(img);
+    return d;
+  }
+  const a=AIRLINE_INFO[icao];
+  const color=airlineColor(icao);
+  const d=el('span','alogo',(a&&a[0])?a[0]:icao.slice(0,2));
+  d.style.background=color;
+  d.style.color=darkText(color)?'#101623':'#fff';
+  return d;
+}
+function hoverTip(elm,info){
+  elm.addEventListener('pointermove',e=>showTip(e.clientX,e.clientY,info()));
+  elm.addEventListener('pointerleave',hideTip);
+}
+function airlineName(icao){const a=AIRLINE_INFO[icao];return a?(STATE.lang==='zh'?a[1]:a[2]):icao;}
+function airlineSub(icao){const a=AIRLINE_INFO[icao];return a&&STATE.lang==='zh'?a[2]:null;}
+function airlineFull(icao){const a=AIRLINE_INFO[icao];return a?(STATE.lang==='zh'?`${a[1]} ${a[2]}`:a[2]):icao;}
+function flightNo(f){const a=AIRLINE_INFO[f.airlineIcao];const code=a&&a[0]?a[0]:f.airlineIcao;return `${code}${f.flightNumber||''}`;}
+function airportCity(iata){const a=AIRPORTS[iata];return a?a[3]:null;}
+function countryName(cc){return COUNTRY_NAMES[cc]||cc;}
+const fmtInt=n=>n.toLocaleString('en-US');
+const fmtDelay=m=>{const r=Math.round(m);return (r>0?'+':'')+r+t('minSuffix');};
+
+let STATE={flights:[],stats:null,fromStorage:false,fromDemo:false,listExpanded:false,yearFilter:null,lang:'zh'};
+
+// ---- 中英文字典 ----
+const I18N={
+zh:{
+  dropzone:'更新資料 — 拖入或點選 CSV',dropOverlay:'放開以載入 CSV',btnReset:'還原預設資料',
+  loaded:(n,a,b)=>`已載入 ${n} 筆（${a} 至 ${b}）`,upcomingN:n=>` · 含 ${n} 筆即將出發`,
+  filterInfo:(y,n)=>` ｜ 篩選 ${y} 年：${n} 筆`,allYears:'全部年份',
+  legendRoute:'航線（次數越多越亮越粗）',legendApt:'機場（大小＝起降次數）',
+  hYears:'年度航班',hPunct:'準點分析',hRoutes:'最常飛航線',hAirlines:'最常搭航空公司',
+  hAircraft:'最常搭機型',hAirports:'最常出入機場',hList:'航班列表',listHint:'點擊展開明細',
+  punctDef:'準點定義：抵達登機門延誤 ≤ 15 分鐘。提早以綠色負數呈現。各項僅統計具實際時間戳的航班。',
+  tFlights:'總航班數',tDist:'總飛行距離',tHours:'總飛行時數',tRoutes:'航線',tCountries:'國家／地區',tAirlines:'航空公司',
+  canceledN:n=>`另有 ${n} 筆取消未計入`,loops:x=>`≈ 繞地球 ${x} 圈`,noCoordN:n=>` · ${n} 筆缺座標未計`,
+  hoursSub:(a,b)=>`估算值：${a} 筆依實際時間、${b} 筆依距離`,hoursSubDist:'估算值（依距離推估）',
+  hoursExcl:n=>` · ${n} 筆無法估算`,routesSub:'不重複航線（無向）',hoursUnit:' 小時',
+  aircraftN:n=>`共 ${n} 種`,airportsN:n=>`共 ${n} 座`,unknownN:n=>`（${n} 個未知代碼）`,
+  avgDep:'平均出發延誤',avgArr:'平均抵達延誤',onTimeRate:'準點率（延誤 ≤15 分）',maxArrDelay:'最長抵達延誤',
+  depSamples:n=>`${n} 筆有實際離門時間`,arrSamples:n=>`${n} 筆有實際到門時間`,arrSamples2:n=>`${n} 筆抵達樣本`,noSample:'無樣本',
+  minSuffix:' 分',timesN:n=>`${n} 次`,visitsN:n=>`${n} 次起降`,clickToFilter:'點擊篩選',
+  yearN:y=>`${y} 年`,flightsN:n=>`${n} 班`,yearAria:(y,n)=>`${y} 年 ${n} 班，點擊篩選`,yearTableCaption:'每年航班數',
+  unknownApt:'未知機場',
+  badgeCanceled:'取消',badgeUpcoming:'即將出發',badgeDiverted:c=>`改降 ${c}`,
+  showAllN:n=>`顯示全部 ${n} 筆`,
+  kAirline:'航空公司',kFlightNo:'航班號',kDepTG:'出發航廈／登機門',kArrTG:'抵達航廈／登機門',
+  kTail:'機身編號',kSeat:'座位',kTerminal:'航廈',kGate:'登機門',
+  kGateDepS:'表定離門',kGateDepA:'實際離門',kTakeoffS:'表定起飛',kTakeoffA:'實際起飛',
+  kLandS:'表定落地',kLandA:'實際落地',kGateArrS:'表定到門',kGateArrA:'實際到門',
+  kDepDelay:'出發延誤',kNotes:'備註',
+  footUnknown:l=>`未知機場代碼：${l}（相關航線未繪於地圖、距離／時數統計已排除）`,
+  footEst:'飛行時數與跨機場時間皆為估算值（機場標準 UTC 偏移，不含日光節約時間）。距離為機場間大圓距離。',
+  footSrc:s=>`資料來源：Flighty App CSV 匯出 · 機場資料 OurAirports · 目前顯示${s}`,
+  srcStorage:'上次上傳的資料',srcDemo:' demo.csv',srcBuiltin:'內建資料',
+  errPrefix:'無法載入：',errNoData:'CSV 解析成功但沒有有效航班資料。',
+  errHeader:m=>`CSV 表頭不符：缺少必要欄位 ${m}。`,errDetected:h=>` 偵測到的表頭：${h}`,errNone:'（無）',
+  errSkipped:n=>`已載入，但有 ${n} 列資料不完整（缺日期／機場／航空公司）已略過。`,errRead:'讀取檔案失敗。',
+  pbDone:n=>`播放完畢 · 共 ${n} 段航程`,
+  titlePlay:'播放航跡（依時間順序）',titleSpeed:'播放速度',titleZoomIn:'放大',titleZoomOut:'縮小',titleZoomReset:'重設視角',titleTheme:'切換深淺色主題',
+},
+en:{
+  dropzone:'Update data — drop or select CSV',dropOverlay:'Drop to load CSV',btnReset:'Restore default data',
+  loaded:(n,a,b)=>`${n} flights loaded (${a} – ${b})`,upcomingN:n=>` · ${n} upcoming`,
+  filterInfo:(y,n)=>` | ${y}: ${n} flights`,allYears:'All years',
+  legendRoute:'Routes (more flights = brighter & thicker)',legendApt:'Airports (size = visits)',
+  hYears:'Flights per year',hPunct:'On-time performance',hRoutes:'Top routes',hAirlines:'Top airlines',
+  hAircraft:'Top aircraft',hAirports:'Top airports',hList:'Flight log',listHint:'tap a row for details',
+  punctDef:'On-time = gate arrival delay ≤ 15 min. Early arrivals shown as green negatives. Only flights with actual timestamps are counted.',
+  tFlights:'Flights',tDist:'Distance',tHours:'Flight time',tRoutes:'Routes',tCountries:'Countries / regions',tAirlines:'Airlines',
+  canceledN:n=>`${n} canceled not counted`,loops:x=>`≈ ${x}× around Earth`,noCoordN:n=>` · ${n} without coordinates excluded`,
+  hoursSub:(a,b)=>`Estimated: ${a} from actual times, ${b} from distance`,hoursSubDist:'Estimated from distance',
+  hoursExcl:n=>` · ${n} not estimable`,routesSub:'unique undirected routes',hoursUnit:' h',
+  aircraftN:n=>`${n} types`,airportsN:n=>`${n} airports`,unknownN:n=>` (${n} unknown codes)`,
+  avgDep:'Avg departure delay',avgArr:'Avg arrival delay',onTimeRate:'On-time rate (≤15 min)',maxArrDelay:'Longest arrival delay',
+  depSamples:n=>`${n} with actual gate-out time`,arrSamples:n=>`${n} with actual gate-in time`,arrSamples2:n=>`${n} arrival samples`,noSample:'no samples',
+  minSuffix:' min',timesN:n=>`×${n}`,visitsN:n=>`${n} visits`,clickToFilter:'click to filter',
+  yearN:y=>`${y}`,flightsN:n=>`${n} flights`,yearAria:(y,n)=>`${y}: ${n} flights, click to filter`,yearTableCaption:'Flights per year',
+  unknownApt:'Unknown airport',
+  badgeCanceled:'Canceled',badgeUpcoming:'Upcoming',badgeDiverted:c=>`Diverted ${c}`,
+  showAllN:n=>`Show all ${n}`,
+  kAirline:'Airline',kFlightNo:'Flight',kDepTG:'Departure terminal / gate',kArrTG:'Arrival terminal / gate',
+  kTail:'Tail number',kSeat:'Seat',kTerminal:'Terminal',kGate:'Gate',
+  kGateDepS:'Gate departure (sched)',kGateDepA:'Gate departure (actual)',kTakeoffS:'Takeoff (sched)',kTakeoffA:'Takeoff (actual)',
+  kLandS:'Landing (sched)',kLandA:'Landing (actual)',kGateArrS:'Gate arrival (sched)',kGateArrA:'Gate arrival (actual)',
+  kDepDelay:'Departure delay',kNotes:'Notes',
+  footUnknown:l=>`Unknown airport codes: ${l} (excluded from map, distance and hours)`,
+  footEst:'Flight time and cross-airport durations are estimates (standard UTC offsets, no DST). Distances are great-circle.',
+  footSrc:s=>`Data: Flighty app CSV export · Airports: OurAirports · Showing ${s}`,
+  srcStorage:'last uploaded data',srcDemo:'demo.csv',srcBuiltin:'built-in data',
+  errPrefix:'Load failed: ',errNoData:'CSV parsed but contains no valid flights.',
+  errHeader:m=>`CSV header mismatch: missing required columns ${m}.`,errDetected:h=>` Detected headers: ${h}`,errNone:'(none)',
+  errSkipped:n=>`Loaded, but ${n} incomplete rows (missing date/airport/airline) were skipped.`,errRead:'Failed to read file.',
+  pbDone:n=>`Done · ${n} flights`,
+  titlePlay:'Play flight history (chronological)',titleSpeed:'Playback speed',titleZoomIn:'Zoom in',titleZoomOut:'Zoom out',titleZoomReset:'Reset view',titleTheme:'Toggle dark/light theme',
+}
+};
+function t(key,...a){
+  const v=(I18N[STATE.lang]||I18N.zh)[key];
+  return typeof v==='function'?v(...a):(v??key);
+}
+function applyLang(){
+  document.documentElement.lang=STATE.lang==='zh'?'zh-Hant':'en';
+  $('#btnLang').textContent=STATE.lang==='zh'?'EN':'中';
+  $('#dropzoneText').textContent=t('dropzone');
+  $('#dropOverlayText').textContent=t('dropOverlay');
+  $('#btnReset').textContent=t('btnReset');
+  $('#legendRoute').textContent=t('legendRoute');
+  $('#legendApt').textContent=t('legendApt');
+  for(const id of ['hYears','hPunct','hRoutes','hAirlines','hAircraft','hAirports','hList'])
+    $('#'+id).textContent=t(id);
+  $('#listHint').textContent=t('listHint');
+  $('#punctDefNote').textContent=t('punctDef');
+  $('#btnPlay').title=t('titlePlay');$('#btnSpeed').title=t('titleSpeed');
+  $('#btnZoomIn').title=t('titleZoomIn');$('#btnZoomOut').title=t('titleZoomOut');
+  $('#btnZoomReset').title=t('titleZoomReset');$('#btnTheme').title=t('titleTheme');
+}
+function getFiltered(){
+  return STATE.yearFilter===null?STATE.flights
+    :STATE.flights.filter(f=>+f.date.slice(0,4)===STATE.yearFilter);
+}
+
+// ---- tooltip ----
+const tip=$('#tooltip');
+function showTip(x,y,lines){ // lines: [[cls,text],...]
+  tip.textContent='';
+  for(const [cls,txt] of lines)tip.appendChild(el('div',cls,txt));
+  tip.style.display='block';
+  const r=tip.getBoundingClientRect();
+  const px=Math.min(x+14,innerWidth-r.width-8),py=Math.min(y+14,innerHeight-r.height-8);
+  tip.style.left=Math.max(4,px)+'px';tip.style.top=Math.max(4,py)+'px';
+}
+function hideTip(){tip.style.display='none';}
+addEventListener('scroll',hideTip,{passive:true});
+
+// ---- map ----
+const MAP_W=1000,MAP_H=500;
+const projX=lon=>(lon+180)/360*MAP_W;
+const projY=lat=>(90-lat)/180*MAP_H;
+const SVG_NS='http://www.w3.org/2000/svg';
+
+const mapSvg=$('#map');
+const MV={base:[0,30,1000,382],vb:[0,30,1000,382]};
+function mkSvg(t,attrs){const e=document.createElementNS(SVG_NS,t);for(const k in attrs)e.setAttribute(k,attrs[k]);return e;}
+function setVB(vb){
+  MV.vb=vb;
+  mapSvg.setAttribute('viewBox',vb.map(v=>(+v).toFixed(2)).join(' '));
+  updateMarkSizes();
+}
+// 標記尺寸以「畫面像素」為準（data-w / data-r 存像素值，依縮放換算）
+function updateMarkSizes(){
+  const w=mapSvg.getBoundingClientRect().width||1000;
+  const s=MV.vb[2]/w;
+  mapSvg.querySelectorAll('[data-w]').forEach(e=>e.setAttribute('stroke-width',(e.dataset.w*s).toFixed(2)));
+  mapSvg.querySelectorAll('[data-r]').forEach(e=>e.setAttribute('r',(e.dataset.r*s).toFixed(2)));
+}
+function clampVB(vb){
+  vb[0]=vb[2]>=MAP_W?(MAP_W-vb[2])/2:Math.min(Math.max(vb[0],0),MAP_W-vb[2]);
+  vb[1]=vb[3]>=MAP_H?(MAP_H-vb[3])/2:Math.min(Math.max(vb[1],0),MAP_H-vb[3]);
+  return vb;
+}
+function zoomAt(cx,cy,factor){ // cx,cy = client 座標；factor<1 放大
+  const r=mapSvg.getBoundingClientRect();if(!r.width)return;
+  const vb=MV.vb.slice();
+  const vx=vb[0]+(cx-r.left)/r.width*vb[2];
+  const vy=vb[1]+(cy-r.top)/r.height*vb[3];
+  let w=vb[2]*factor;
+  w=Math.min(Math.max(w,MV.base[2]/10),MV.base[2]);
+  const h=w*(MV.aspect||MV.base[3]/MV.base[2]);
+  const k=w/vb[2];
+  setVB(clampVB([vx-(vx-vb[0])*k,vy-(vy-vb[1])*k,w,h]));
+}
+// 拖曳平移 + 雙指縮放
+const ptrs=new Map();
+mapSvg.addEventListener('pointerdown',e=>{
+  if(e.button!==0&&e.pointerType==='mouse')return;
+  ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});
+  mapSvg.setPointerCapture(e.pointerId);
+  if(ptrs.size===1)mapSvg.classList.add('dragging');
+});
+mapSvg.addEventListener('pointermove',e=>{
+  const p=ptrs.get(e.pointerId);if(!p)return;
+  const r=mapSvg.getBoundingClientRect();if(!r.width)return;
+  if(ptrs.size===1){
+    const s=MV.vb[2]/r.width;
+    const vb=MV.vb.slice();
+    vb[0]-=(e.clientX-p.x)*s;vb[1]-=(e.clientY-p.y)*s;
+    p.x=e.clientX;p.y=e.clientY;
+    setVB(clampVB(vb));
+  }else if(ptrs.size===2){
+    const [a,b]=[...ptrs.values()];
+    const d0=Math.hypot(a.x-b.x,a.y-b.y);
+    p.x=e.clientX;p.y=e.clientY;
+    const [a2,b2]=[...ptrs.values()];
+    const d1=Math.hypot(a2.x-b2.x,a2.y-b2.y);
+    if(d0>1&&d1>1)zoomAt((a2.x+b2.x)/2,(a2.y+b2.y)/2,d0/d1);
+  }
+});
+const endPtr=e=>{ptrs.delete(e.pointerId);if(!ptrs.size)mapSvg.classList.remove('dragging');};
+mapSvg.addEventListener('pointerup',endPtr);
+mapSvg.addEventListener('pointercancel',endPtr);
+mapSvg.addEventListener('wheel',e=>{e.preventDefault();zoomAt(e.clientX,e.clientY,e.deltaY<0?0.8:1.25);},{passive:false});
+mapSvg.addEventListener('dblclick',e=>zoomAt(e.clientX,e.clientY,0.55));
+const mapCenter=()=>{const r=mapSvg.getBoundingClientRect();return [r.left+r.width/2,r.top+r.height/2];};
+$('#btnZoomIn').addEventListener('click',()=>{const c=mapCenter();zoomAt(c[0],c[1],0.72);});
+$('#btnZoomOut').addEventListener('click',()=>{const c=mapCenter();zoomAt(c[0],c[1],1/0.72);});
+$('#btnZoomReset').addEventListener('click',()=>setVB(MV.base.slice()));
+
+function renderMap(st){
+  stopPlayback();
+  const svg=mapSvg;svg.textContent='';
+  const mk=mkSvg;
+  svg.appendChild(mk('path',{d:LAND_PATH,class:'land'}));
+  // 先計算所有航線幾何與資料範圍（供動態 viewBox）
+  let minX=Infinity,maxX=-Infinity,minY=Infinity,maxY=-Infinity;
+  const see=(x,y)=>{if(x<minX)minX=x;if(x>maxX)maxX=x;if(y<minY)minY=y;if(y>maxY)maxY=y;};
+  const routeGeoms=[];
+  for(const [key,cnt] of st.routes){
+    const [p,q]=key.split('-');
+    const A=AIRPORTS[p],B=AIRPORTS[q];
+    if(!A||!B)continue;
+    const segs=splitAntimeridian(greatCirclePoints([A[0],A[1]],[B[0],B[1]],64));
+    let d='';
+    for(const seg of segs){
+      d+=seg.map((pt,i)=>{
+        const x=projX(pt[1]),y=projY(pt[0]);see(x,y);
+        return (i?'L':'M')+x.toFixed(1)+' '+y.toFixed(1);
+      }).join('');
+    }
+    routeGeoms.push({d,cnt,p,q});
+  }
+  const aptGeoms=[];
+  for(const [iata,cnt] of st.airportCount){
+    const A=AIRPORTS[iata];if(!A)continue;
+    const x=projX(A[1]),y=projY(A[0]);see(x,y);
+    aptGeoms.push({x,y,cnt,iata,A});
+  }
+  // 動態 viewBox：貼合資料範圍，但高寬比固定（桌面 0.56、手機 0.9）
+  // → 切換年份/資料時地圖渲染高度恆定
+  const rw=svg.getBoundingClientRect().width||1000;
+  const R=rw<560?0.9:0.56;
+  MV.aspect=R;
+  let vb,initVb;
+  if(!isFinite(minX)){
+    const h=397,w=Math.min(MAP_W,h/R);
+    vb=[(MAP_W-w)/2,25,w,h];
+    initVb=vb.slice();
+  }else{
+    const padX=Math.max(28,(maxX-minX)*.06),padY=Math.max(22,(maxY-minY)*.09);
+    let x0=Math.max(0,minX-padX),x1=Math.min(MAP_W,maxX+padX);
+    let y0=Math.max(25,minY-padY),y1=Math.min(422,maxY+padY);
+    if(x1-x0<300){const c=(x0+x1)/2;x0=c-150;x1=c+150;}
+    if(y1-y0<150){const c=(y0+y1)/2;y0=c-75;y1=c+75;}
+    const dataW=x1-x0,dataH=y1-y0;
+    // 基準視窗：涵蓋全部資料、比例補足短邊
+    let w=Math.max(dataW,dataH/R);
+    if(w>MAP_W)w=MAP_W;
+    const h=w*R;
+    const bx=w>=MAP_W?0:Math.min(Math.max((x0+x1)/2-w/2,0),MAP_W-w);
+    const by=h<=397?Math.min(Math.max((y0+y1)/2-h/2,25),422-h):(MAP_H-h)/2;
+    vb=[bx,by,w,h];
+    initVb=vb.slice();
+    // 手機：預設聚焦資料重心的窄視窗（同比例，可平移/縮小看全部）
+    if(rw<560&&aptGeoms.length){
+      const w2=dataH/R;
+      if(w2<w-10){
+        let tot=0,cx=0;
+        for(const g of aptGeoms){tot+=g.cnt;cx+=g.x*g.cnt;}
+        cx/=tot||1;
+        const ix=Math.min(Math.max(cx-w2/2,x0),Math.max(x0,x1-w2));
+        initVb=[ix,y0,w2,dataH];
+      }
+    }
+  }
+  const maxRoute=Math.max(1,...st.routes.values());
+  const gR=mk('g',{class:'routes-static'});const gA=mk('g',{});
+  for(const {d,cnt,p,q} of routeGeoms){
+    const frac=cnt/maxRoute;
+    const w=1.1+1.9*Math.sqrt(frac);
+    const op=(0.45+0.5*Math.sqrt(frac)).toFixed(2);
+    const wrap=mk('g',{});
+    wrap.appendChild(mk('path',{d,class:'route-glow','data-w':(w*3.2).toFixed(2)}));
+    wrap.appendChild(mk('path',{d,class:'route','data-w':w.toFixed(2),opacity:op}));
+    const hit=mk('path',{d,class:'route-hit',tabindex:'0','data-w':12,'aria-label':`${p} ⇌ ${q} ${t('timesN',cnt)}`});
+    const info=()=>[['tv',`${p} ⇌ ${q}`],['tl',`${airportCity(p)||p} — ${airportCity(q)||q} · ${t('timesN',cnt)}`]];
+    hit.addEventListener('pointermove',e=>{if(!ptrs.size)showTip(e.clientX,e.clientY,info());});
+    hit.addEventListener('pointerleave',hideTip);
+    hit.addEventListener('focus',()=>{const r=hit.getBoundingClientRect();showTip(r.x+r.width/2,r.y+r.height/2,info());});
+    hit.addEventListener('blur',hideTip);
+    gR.appendChild(hit);gR.appendChild(wrap);
+  }
+  const maxApt=Math.max(1,...st.airportCount.values());
+  for(const {x,y,cnt,iata,A} of aptGeoms){
+    const r=2+3.6*Math.sqrt(cnt/maxApt);
+    gA.appendChild(mk('circle',{cx:x.toFixed(1),cy:y.toFixed(1),'data-r':(r*2.1).toFixed(2),class:'apt-glow'}));
+    const c=mk('circle',{cx:x.toFixed(1),cy:y.toFixed(1),'data-r':r.toFixed(2),class:'apt',tabindex:'0','aria-label':`${iata} ${t('visitsN',cnt)}`});
+    const info=()=>[['tv',iata+' · '+t('visitsN',cnt)],['tl',(A[3]||'')+', '+countryName(A[4])]];
+    c.addEventListener('pointermove',e=>{if(!ptrs.size)showTip(e.clientX,e.clientY,info());});
+    c.addEventListener('pointerleave',hideTip);
+    c.addEventListener('focus',()=>{const rc=c.getBoundingClientRect();showTip(rc.x,rc.y,info());});
+    c.addEventListener('blur',hideTip);
+    gA.appendChild(c);
+  }
+  svg.appendChild(gR);svg.appendChild(gA);
+  setVB(initVb);
+}
+let rsTimer=null;
+addEventListener('resize',()=>{
+  clearTimeout(rsTimer);
+  rsTimer=setTimeout(()=>{if(STATE.stats)renderMap(STATE.stats);},200);
+});
+
+// ---- 播放航跡（依時間順序） ----
+const PB={on:false,idx:0,t:0,last:0,speed:1,seq:[],layer:null,raf:0,visited:new Set(),done:false,path:null,head:null};
+const REDUCED_MOTION=window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches;
+const PB_GAP=130;
+function buildSeq(){
+  const flights=getFiltered().filter(f=>!f.canceled&&AIRPORTS[f.from]&&AIRPORTS[f.effectiveTo]);
+  flights.sort((a,b)=>{
+    const ka=a.date+(a.times.gateDepSched||''),kb=b.date+(b.times.gateDepSched||'');
+    return ka<kb?-1:ka>kb?1:0;
+  });
+  return flights.map(f=>{
+    const A=AIRPORTS[f.from],B=AIRPORTS[f.effectiveTo];
+    const segs=splitAntimeridian(greatCirclePoints([A[0],A[1]],[B[0],B[1]],64))
+      .map(seg=>seg.map(pt=>[projX(pt[1]),projY(pt[0])]));
+    return {f,segs,dist:haversineKm([A[0],A[1]],[B[0],B[1]]),n:segs.reduce((a,s)=>a+s.length,0)};
+  });
+}
+function pbPartial(item,frac){ // 取航線前 frac 比例的點 → {d,last}
+  let remaining=Math.max(2,Math.round(item.n*frac));
+  let d='',last=null;
+  for(const seg of item.segs){
+    if(remaining<=0)break;
+    const take=seg.slice(0,remaining);
+    if(take.length>=2)d+=take.map((p,i)=>(i?'L':'M')+p[0].toFixed(1)+' '+p[1].toFixed(1)).join('');
+    if(take.length)last=take[take.length-1];
+    remaining-=seg.length;
+  }
+  return {d,last};
+}
+function pbMarkApt(iata,xy){
+  if(PB.visited.has(iata))return;
+  PB.visited.add(iata);
+  PB.layer.appendChild(mkSvg('circle',{class:'pb-apt',cx:xy[0].toFixed(1),cy:xy[1].toFixed(1),'data-r':2}));
+}
+function pbBeginFlight(){
+  const item=PB.seq[PB.idx];
+  PB.path=mkSvg('path',{class:'pb-route','data-w':1.6});
+  PB.head=mkSvg('circle',{class:'pb-head','data-r':2.6});
+  PB.layer.appendChild(PB.path);PB.layer.appendChild(PB.head);
+  pbMarkApt(item.f.from,item.segs[0][0]);
+  updateMarkSizes();
+  $('#playCaption').textContent=`${PB.idx+1}/${PB.seq.length} · ${item.f.date} · ${flightNo(item.f)} · ${item.f.from} → ${item.f.effectiveTo}`;
+}
+function pbDur(item){return REDUCED_MOTION?0:(350+item.dist*0.16);}
+function pbTick(now){
+  if(!PB.on)return;
+  const dtReal=now-PB.last;
+  PB.t+=dtReal*PB.speed;PB.last=now;
+  const item=PB.seq[PB.idx];
+  const dur=pbDur(item);
+  const frac=dur?Math.min(1,PB.t/dur):1;
+  const {d,last}=pbPartial(item,frac);
+  if(d)PB.path.setAttribute('d',d);
+  if(last){
+    PB.head.setAttribute('cx',last[0].toFixed(1));PB.head.setAttribute('cy',last[1].toFixed(1));
+    // 地圖已放大時，鏡頭平滑跟隨航跡
+    if(MV.vb[2]<MV.base[2]*0.98&&!ptrs.size){
+      const k=1-Math.exp(-dtReal/260);
+      const vb=MV.vb.slice();
+      vb[0]+=(last[0]-vb[2]/2-vb[0])*k;
+      vb[1]+=(last[1]-vb[3]/2-vb[1])*k;
+      setVB(clampVB(vb));
+    }
+  }
+  if(PB.t>=dur+PB_GAP){
+    const lastSeg=item.segs[item.segs.length-1];
+    pbMarkApt(item.f.effectiveTo,lastSeg[lastSeg.length-1]);
+    PB.head.remove();
+    PB.idx++;PB.t=0;
+    if(PB.idx>=PB.seq.length){
+      PB.on=false;PB.done=true;
+      setBtnIcon($('#btnPlay'),'replay');$('#btnPlay').classList.remove('on');
+      $('#playCaption').textContent=t('pbDone',PB.seq.length);
+      return;
+    }
+    pbBeginFlight();
+  }
+  PB.raf=requestAnimationFrame(pbTick);
+}
+function startPlayback(){
+  stopPlayback();
+  PB.seq=buildSeq();
+  if(!PB.seq.length)return;
+  PB.on=true;PB.idx=0;PB.t=0;PB.done=false;PB.visited=new Set();
+  PB.layer=mkSvg('g',{});
+  mapSvg.appendChild(PB.layer);
+  mapSvg.classList.add('playing');
+  setBtnIcon($('#btnPlay'),'pause');$('#btnPlay').classList.add('on');
+  $('#playCaption').hidden=false;
+  pbBeginFlight();
+  PB.last=performance.now();
+  PB.raf=requestAnimationFrame(pbTick);
+}
+function stopPlayback(){
+  PB.on=false;PB.done=false;
+  cancelAnimationFrame(PB.raf);
+  if(PB.layer){PB.layer.remove();PB.layer=null;}
+  PB.seq=[];
+  mapSvg.classList.remove('playing');
+  setBtnIcon($('#btnPlay'),'play');$('#btnPlay').classList.remove('on');
+  $('#playCaption').hidden=true;
+}
+$('#btnPlay').addEventListener('click',()=>{
+  if(PB.on){ // 暫停
+    PB.on=false;cancelAnimationFrame(PB.raf);
+    setBtnIcon($('#btnPlay'),'play');
+  }else if(PB.seq.length&&!PB.done){ // 續播
+    PB.on=true;PB.last=performance.now();
+    setBtnIcon($('#btnPlay'),'pause');
+    PB.raf=requestAnimationFrame(pbTick);
+  }else startPlayback();
+});
+$('#btnSpeed').addEventListener('click',()=>{
+  PB.speed=PB.speed>=4?1:PB.speed*2;
+  $('#btnSpeed').textContent=PB.speed+'×';
+});
+
+// ---- stat tiles ----
+function renderTiles(st){
+  const c=$('#statTiles');c.textContent='';
+  const tile=(lb,v,sub,hero,vSuffix)=>{
+    const t=el('div','tile'+(hero?' hero':''));
+    t.appendChild(el('div','lb',lb));
+    const vd=el('div','v'+(String(v).length>=7?' sm':''),v);
+    if(vSuffix)vd.appendChild(el('small',null,vSuffix));
+    t.appendChild(vd);
+    if(sub)t.appendChild(el('div','sub',sub));
+    c.appendChild(t);
+    return t;
+  };
+  const loops=st.distanceKm/EARTH_CIRC;
+  tile(t('tFlights'),fmtInt(st.total),st.canceled?t('canceledN',st.canceled):null,true);
+  tile(t('tDist'),fmtInt(Math.round(st.distanceKm)),t('loops',loops.toFixed(1))+(st.distExcluded?t('noCoordN',st.distExcluded):''),false,' km');
+  const hSub=st.hoursBySrc.block||st.hoursBySrc.air
+    ?t('hoursSub',st.hoursBySrc.air+st.hoursBySrc.block,st.hoursBySrc.dist)
+    :t('hoursSubDist');
+  tile(t('tHours'),fmtInt(Math.round(st.hours)),hSub+(st.hoursExcluded?t('hoursExcl',st.hoursExcluded):''),false,t('hoursUnit'));
+  tile(t('tRoutes'),fmtInt(st.routes.size),t('routesSub'));
+  // 國家／地區：附圓形國旗（依起降次數排序）
+  const tCountry=tile(t('tCountries'),fmtInt(st.countries.size));
+  const ccCount=new Map();
+  for(const [iata,cnt] of st.airportCount){
+    const A=AIRPORTS[iata];if(!A)continue;
+    ccCount.set(A[4],(ccCount.get(A[4])||0)+cnt);
+  }
+  if(ccCount.size){
+    const row=el('div','iconrow');
+    [...ccCount.entries()].sort((a,b)=>b[1]-a[1]).forEach(([cc,cnt])=>{
+      const f=flagEl(cc);
+      f.setAttribute('aria-label',countryName(cc));
+      hoverTip(f,()=>[['tv',countryName(cc)],['tl',t('visitsN',cnt)]]);
+      row.appendChild(f);
+    });
+    tCountry.appendChild(row);
+  }
+  // 航空公司：附圓形徽章（依搭乘次數排序）
+  const tAirline=tile(t('tAirlines'),fmtInt(st.airlines.size));
+  if(st.airlineCount.size){
+    const row=el('div','iconrow');
+    [...st.airlineCount.entries()].sort((a,b)=>b[1]-a[1]).forEach(([icao,cnt])=>{
+      const g=logoEl(icao);
+      g.setAttribute('aria-label',airlineName(icao));
+      hoverTip(g,()=>[['tv',airlineName(icao)],['tl',t('flightsN',cnt)]]);
+      row.appendChild(g);
+    });
+    tAirline.appendChild(row);
+  }
+}
+
+// ---- year filter ----
+function toggleYear(y){
+  STATE.yearFilter=STATE.yearFilter===y?null:y;
+  STATE.listExpanded=false;
+  renderAll();
+}
+function renderYearChips(allSt){
+  const c=$('#yearFilter');c.textContent='';
+  const mkChip=(label,y)=>{
+    const b=el('button','chip'+(STATE.yearFilter===y?' on':''),label);
+    b.type='button';
+    b.setAttribute('aria-pressed',STATE.yearFilter===y?'true':'false');
+    b.addEventListener('click',()=>{if(STATE.yearFilter!==y){STATE.yearFilter=y;STATE.listExpanded=false;renderAll();}});
+    c.appendChild(b);
+  };
+  mkChip(t('allYears'),null);
+  for(const [y,n] of allSt.yearRange)if(n)mkChip(String(y),y);
+}
+
+// ---- year chart（永遠顯示全部年份；點擊長條可篩選） ----
+function renderYears(allSt){
+  const c=$('#yearChart');c.textContent='';
+  const tb=$('#yearTable');tb.textContent='';
+  const cap=el('caption',null,t('yearTableCaption'));tb.appendChild(cap);
+  const max=Math.max(1,...allSt.yearRange.map(y=>y[1]));
+  for(const [y,n] of allSt.yearRange){
+    const sel=STATE.yearFilter===y;
+    const bar=el('div','ybar'+(n?'':' zero')+(sel?' sel':'')+(STATE.yearFilter!==null&&!sel?' dim':''));
+    bar.setAttribute('tabindex','0');
+    bar.setAttribute('role','button');
+    bar.setAttribute('aria-pressed',sel?'true':'false');
+    bar.setAttribute('aria-label',t('yearAria',y,n));
+    if(n===max)bar.appendChild(el('div','vl',String(n)));
+    const f=el('div','fill');
+    f.style.height=n?Math.max(3,Math.round(n/max*118))+'px':'';
+    bar.appendChild(f);
+    bar.appendChild(el('div','yl',String(y)));
+    const info=()=>[['tv',t('flightsN',n)],['tl',t('yearN',y)+' · '+t('clickToFilter')]];
+    bar.addEventListener('pointermove',e=>showTip(e.clientX,e.clientY,info()));
+    bar.addEventListener('pointerleave',hideTip);
+    bar.addEventListener('focus',()=>{const r=bar.getBoundingClientRect();showTip(r.x,r.y,info());});
+    bar.addEventListener('blur',hideTip);
+    bar.addEventListener('click',()=>{hideTip();toggleYear(y);});
+    bar.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();hideTip();toggleYear(y);}});
+    c.appendChild(bar);
+    const tr=el('tr');tr.appendChild(el('th',null,String(y)));tr.appendChild(el('td',null,String(n)));tb.appendChild(tr);
+  }
+}
+
+// ---- punctuality ----
+function renderPunct(st){
+  const g=$('#punctGrid');g.textContent='';
+  const pt=(lb,v,cls,sub)=>{
+    const d=el('div','pt');
+    d.appendChild(el('div','lb',lb));
+    d.appendChild(el('div','v'+(cls?' '+cls:''),v));
+    if(sub)d.appendChild(el('div','sub',sub));
+    g.appendChild(d);
+  };
+  const clsOf=m=>m===null?'':(m<=0?'good':m<=15?'good':m<=30?'warn':'bad');
+  pt(t('avgDep'),st.avgDep===null?'—':fmtDelay(st.avgDep),clsOf(st.avgDep),t('depSamples',st.depDelays.length));
+  pt(t('avgArr'),st.avgArr===null?'—':fmtDelay(st.avgArr),clsOf(st.avgArr),t('arrSamples',st.arrDelays.length));
+  pt(t('onTimeRate'),st.onTime===null?'—':Math.round(st.onTime*100)+'%',st.onTime!==null&&st.onTime>=0.8?'good':st.onTime!==null&&st.onTime>=0.6?'warn':'bad',st.arrDelays.length?t('arrSamples2',st.arrDelays.length):t('noSample'));
+  if(st.maxArrDelay){
+    const f=st.maxArrDelay.f;
+    pt(t('maxArrDelay'),fmtDelay(st.maxArrDelay.min),st.maxArrDelay.min>15?'bad':'good',`${flightNo(f)} · ${f.date} · ${f.from}→${f.effectiveTo}`);
+  } else pt(t('maxArrDelay'),'—','',t('noSample'));
+  $('#punctNote').textContent='';
+}
+
+// ---- rankings ----
+function rankRow(i,name,sub,cnt,share,total,icon){
+  const d=el('div','rank-item');
+  d.appendChild(el('span','n',String(i+1)));
+  if(icon)d.appendChild(icon);
+  const nm=el('span','name',name);
+  if(sub)nm.appendChild(el('small',null,sub));
+  d.appendChild(nm);
+  if(share!==null){
+    const s=el('span','share');const bar=el('i');
+    bar.style.width=Math.round(share*100)+'%';s.appendChild(bar);d.appendChild(s);
+  }
+  const c=el('span','cnt',String(cnt));
+  if(total)c.appendChild(el('small',null,Math.round(cnt/total*100)+'%'));
+  d.appendChild(c);
+  return d;
+}
+function renderRankings(st){
+  const routes=$('#rankRoutes');routes.textContent='';
+  topN(st.routes,8).forEach(([key,cnt],i)=>{
+    const [a,b]=key.split('-');
+    routes.appendChild(rankRow(i,`${a} ⇌ ${b}`,`${airportCity(a)||''} — ${airportCity(b)||''}`,cnt,null,null));
+  });
+  const airlines=$('#rankAirlines');airlines.textContent='';
+  const maxAl=Math.max(1,...st.airlineCount.values());
+  topN(st.airlineCount,8).forEach(([icao,cnt],i)=>{
+    airlines.appendChild(rankRow(i,airlineName(icao),airlineSub(icao),cnt,cnt/maxAl,st.total,logoEl(icao)));
+  });
+  const ac=$('#rankAircraft');ac.textContent='';
+  $('#acCount').textContent=t('aircraftN',st.aircraft.size);
+  topN(st.aircraftCount,8).forEach(([name,cnt],i)=>{
+    ac.appendChild(rankRow(i,name,null,cnt,null,null));
+  });
+  const ap=$('#rankAirports');ap.textContent='';
+  $('#apCount').textContent=t('airportsN',st.airports.size)+(st.unknownAirports.size?t('unknownN',st.unknownAirports.size):'');
+  topN(st.airportCount,8).forEach(([iata,cnt],i)=>{
+    const a=AIRPORTS[iata];
+    ap.appendChild(rankRow(i,iata,a?`${a[3]}, ${countryName(a[4])}`:t('unknownApt'),cnt,null,null,a?flagEl(a[4]):null));
+  });
+}
+
+// ---- flight list ----
+const LIST_LIMIT=20;
+function delayBadge(f){
+  if(f.canceled)return el('span','badge canceled',t('badgeCanceled'));
+  const todayStr=new Date().toISOString().slice(0,10);
+  const ad=delayMin(f.times.gateArrSched,f.times.gateArrActual);
+  if(ad!==null){
+    if(ad<=-5)return el('span','badge early',fmtDelay(ad));
+    if(ad<=15)return el('span','badge ontime',fmtDelay(ad));
+    if(ad<=45)return el('span','badge late',fmtDelay(ad));
+    return el('span','badge verylate',fmtDelay(ad));
+  }
+  if(f.date>todayStr)return el('span','badge upcoming',t('badgeUpcoming'));
+  return null;
+}
+function fmtTs(s){return s?s.replace('T',' '):null;}
+function renderList(st,flights){
+  const c=$('#flightList');c.textContent='';
+  const sorted=[...flights].sort((a,b)=>b.date<a.date?-1:b.date>a.date?1:0);
+  const shown=STATE.listExpanded?sorted:sorted.slice(0,LIST_LIMIT);
+  for(const f of shown){
+    const row=el('div','fl-row'+(f.canceled?' canceled':''));
+    row.setAttribute('role','button');row.setAttribute('tabindex','0');
+    const lg=el('span','lg');lg.appendChild(logoEl(f.airlineIcao));
+    row.appendChild(lg);
+    row.appendChild(el('span','d',f.date));
+    row.appendChild(el('span','no',flightNo(f)));
+    const cityA=airportCity(f.from),cityB=airportCity(f.effectiveTo);
+    const rt=el('span','rt',`${f.from} → ${f.effectiveTo}`);
+    if(cityA||cityB)rt.appendChild(el('small',null,`${cityA||f.from} — ${cityB||f.effectiveTo}`));
+    row.appendChild(rt);
+    row.appendChild(el('span','ac',f.aircraft||''));
+    // 手機版合併次要資訊為一行（桌面隱藏）
+    row.appendChild(el('span','meta',`${f.date} · ${flightNo(f)}${f.aircraft?' · '+f.aircraft:''}`));
+    const bdg=el('span','bdg');
+    if(f.divertedTo)bdg.appendChild(el('span','badge diverted',t('badgeDiverted',f.divertedTo)));
+    const b=delayBadge(f);if(b)bdg.appendChild(b);
+    row.appendChild(bdg);
+    const det=el('div','fl-detail');
+    const kv=(k,v)=>{if(v===null||v===undefined||v==='')return;const w=el('div','w');w.appendChild(el('div','k',k));w.appendChild(el('div',null,v));det.appendChild(w);};
+    kv(t('kAirline'),airlineFull(f.airlineIcao));
+    kv(t('kFlightNo'),flightNo(f)+`（${f.airlineIcao} ${f.flightNumber||''}）`);
+    kv(t('kDepTG'),[f.depTerminal&&(t('kTerminal')+' '+f.depTerminal),f.depGate&&(t('kGate')+' '+f.depGate)].filter(Boolean).join(' · ')||null);
+    kv(t('kArrTG'),[f.arrTerminal&&(t('kTerminal')+' '+f.arrTerminal),f.arrGate&&(t('kGate')+' '+f.arrGate)].filter(Boolean).join(' · ')||null);
+    kv(t('kTail'),f.tail);
+    kv(t('kSeat'),f.seat?f.seat+(f.cabin?` · ${f.cabin}`:''):f.cabin);
+    kv(t('kGateDepS'),fmtTs(f.times.gateDepSched));kv(t('kGateDepA'),fmtTs(f.times.gateDepActual));
+    kv(t('kTakeoffS'),fmtTs(f.times.takeoffSched));kv(t('kTakeoffA'),fmtTs(f.times.takeoffActual));
+    kv(t('kLandS'),fmtTs(f.times.landingSched));kv(t('kLandA'),fmtTs(f.times.landingActual));
+    kv(t('kGateArrS'),fmtTs(f.times.gateArrSched));kv(t('kGateArrA'),fmtTs(f.times.gateArrActual));
+    const dd=delayMin(f.times.gateDepSched,f.times.gateDepActual);
+    if(dd!==null)kv(t('kDepDelay'),fmtDelay(dd));
+    kv(t('kNotes'),f.notes);
+    const toggle=()=>{det.classList.toggle('open');};
+    row.addEventListener('click',toggle);
+    row.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();toggle();}});
+    c.appendChild(row);c.appendChild(det);
+  }
+  const more=$('#flMore');
+  if(sorted.length>LIST_LIMIT&&!STATE.listExpanded){
+    more.hidden=false;
+    more.querySelector('button').textContent=t('showAllN',sorted.length);
+  } else more.hidden=true;
+}
+$('#flMore button')?.addEventListener('click',()=>{STATE.listExpanded=true;renderList(STATE.stats,getFiltered());});
+
+// ---- footer ----
+function renderFoot(st){
+  const f=$('#foot');f.textContent='';
+  if(st.unknownAirports.size){
+    f.appendChild(el('div','warn-apt',t('footUnknown',[...st.unknownAirports].sort().join('、'))));
+  }
+  f.appendChild(el('div',null,t('footEst')));
+  const src=STATE.fromStorage?t('srcStorage'):STATE.fromDemo?t('srcDemo'):t('srcBuiltin');
+  f.appendChild(el('div',null,t('footSrc',src)));
+}
+
+// ---- status line ----
+function renderStatus(allSt,st){
+  const s=$('#statusLine');s.textContent='';
+  const todayStr=new Date().toISOString().slice(0,10);
+  const upcoming=STATE.flights.filter(f=>!f.canceled&&f.date>todayStr).length;
+  s.appendChild(document.createTextNode(t('loaded',STATE.flights.length,allSt.dateMin,allSt.dateMax)));
+  if(upcoming)s.appendChild(el('span','up',t('upcomingN',upcoming)));
+  if(STATE.yearFilter!==null)s.appendChild(el('b',null,t('filterInfo',STATE.yearFilter,st.total)));
+}
+
+// ---- render all ----
+function renderAll(){
+  const allSt=computeStats(STATE.flights,AIRPORTS);
+  const flights=getFiltered();
+  const st=STATE.yearFilter===null?allSt:computeStats(flights,AIRPORTS);
+  STATE.stats=st;STATE.fullStats=allSt;
+  renderStatus(allSt,st);renderYearChips(allSt);renderMap(st);renderTiles(st);
+  renderYears(allSt);renderPunct(st);renderRankings(st);renderList(st,flights);renderFoot(st);
+}
+
+// ---- data loading ----
+const LS_KEY='flighty-viewer-csv';
+function tryStorage(fn){try{return fn();}catch(e){return null;}}
+
+function loadCsvText(text,{persist}={}){
+  const rows=parseCSV(text);
+  const res=normalizeFlights(rows);
+  if(!res.ok||!res.flights.length){
+    const eb=$('#errBanner');eb.hidden=false;eb.textContent='';
+    const msg=res.ok?t('errNoData'):t('errHeader',(res.missing||[]).join(', '));
+    eb.appendChild(el('b',null,t('errPrefix')));
+    eb.appendChild(document.createTextNode(msg+t('errDetected',res.headers.length?res.headers.join(' | '):t('errNone'))));
+    return false;
+  }
+  $('#errBanner').hidden=true;
+  STATE.flights=res.flights;STATE.listExpanded=false;STATE.yearFilter=null;
+  if(persist){
+    STATE.fromStorage=true;STATE.fromDemo=false;
+    tryStorage(()=>localStorage.setItem(LS_KEY,text));
+    $('#btnReset').hidden=false;
+  }
+  renderAll();
+  if(res.skipped){
+    const eb=$('#errBanner');eb.hidden=false;
+    eb.textContent=t('errSkipped',res.skipped);
+  }
+  return true;
+}
+
+// 預設資料：優先讀取同目錄 demo.csv（GitHub Pages 部署時直接換檔即可更新，
+// 不用重建 index.html）；file:// 或無網路時退回內嵌資料
+async function loadDefaultData(){
+  try{
+    const res=await fetch('demo.csv',{cache:'no-store'});
+    if(res.ok){
+      const t=await res.text();
+      STATE.fromDemo=true;
+      if(loadCsvText(t.charCodeAt(0)===0xFEFF?t.slice(1):t,{persist:false}))return;
+      STATE.fromDemo=false;
+    }
+  }catch(e){}
+  loadCsvText(DEFAULT_CSV,{persist:false});
+}
+async function boot(){
+  const saved=tryStorage(()=>localStorage.getItem(LS_KEY));
+  if(saved){
+    STATE.fromStorage=true;$('#btnReset').hidden=false;
+    if(loadCsvText(saved,{persist:false})){afterBoot();return;}
+    STATE.fromStorage=false;$('#btnReset').hidden=true;
+    tryStorage(()=>localStorage.removeItem(LS_KEY));
+  }
+  await loadDefaultData();
+  afterBoot();
+}
+function afterBoot(){
+  // #play：開啟頁面即自動播放航跡（也供自動化測試）
+  if(location.hash==='#play')setTimeout(startPlayback,300);
+}
+
+// ---- upload handlers ----
+function handleFile(file){
+  if(!file)return;
+  const rd=new FileReader();
+  rd.onload=()=>loadCsvText(String(rd.result),{persist:true});
+  rd.onerror=()=>{const eb=$('#errBanner');eb.hidden=false;eb.textContent=t('errRead');};
+  rd.readAsText(file,'utf-8');
+}
+$('#dropzone').addEventListener('click',()=>$('#fileInput').click());
+$('#fileInput').addEventListener('change',e=>{handleFile(e.target.files[0]);e.target.value='';});
+$('#btnReset').addEventListener('click',()=>{
+  tryStorage(()=>localStorage.removeItem(LS_KEY));
+  STATE.fromStorage=false;STATE.listExpanded=false;$('#btnReset').hidden=true;
+  loadDefaultData();
+});
+let dragDepth=0;
+addEventListener('dragenter',e=>{e.preventDefault();dragDepth++;$('#dropOverlay').classList.add('on');});
+addEventListener('dragleave',e=>{e.preventDefault();if(--dragDepth<=0){dragDepth=0;$('#dropOverlay').classList.remove('on');}});
+addEventListener('dragover',e=>e.preventDefault());
+addEventListener('drop',e=>{
+  e.preventDefault();dragDepth=0;$('#dropOverlay').classList.remove('on');
+  const file=e.dataTransfer&&e.dataTransfer.files&&e.dataTransfer.files[0];
+  handleFile(file);
+});
+
+// ---- 深淺色主題 ----
+const THEME_KEY='flighty-viewer-theme';
+function applyTheme(mode){
+  document.documentElement.setAttribute('data-theme',mode);
+  setBtnIcon($('#btnTheme'),mode==='light'?'dark':'light');
+}
+let curTheme=tryStorage(()=>localStorage.getItem(THEME_KEY))
+  ||(window.matchMedia&&matchMedia('(prefers-color-scheme: light)').matches?'light':'dark');
+if(curTheme!=='light'&&curTheme!=='dark')curTheme='dark';
+applyTheme(curTheme);
+$('#btnTheme').addEventListener('click',()=>{
+  curTheme=curTheme==='dark'?'light':'dark';
+  applyTheme(curTheme);
+  tryStorage(()=>localStorage.setItem(THEME_KEY,curTheme));
+});
+
+// ---- 中英文切換 ----
+const LANG_KEY='flighty-viewer-lang';
+const savedLang=tryStorage(()=>localStorage.getItem(LANG_KEY));
+STATE.lang=savedLang==='en'||savedLang==='zh'?savedLang
+  :((navigator.language||'').toLowerCase().startsWith('zh')?'zh':'en');
+applyLang();
+$('#btnLang').addEventListener('click',()=>{
+  STATE.lang=STATE.lang==='zh'?'en':'zh';
+  tryStorage(()=>localStorage.setItem(LANG_KEY,STATE.lang));
+  applyLang();
+  if(STATE.flights.length)renderAll();
+});
+
+boot();
+</script>
+</body>
+</html>
