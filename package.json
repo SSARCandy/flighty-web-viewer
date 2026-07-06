@@ -1,0 +1,14 @@
+{
+  "name": "flighty-web-viewer",
+  "version": "1.0.0",
+  "description": "Self-contained single-file viewer for Flighty flight-history CSV exports.",
+  "private": true,
+  "scripts": {
+    "build": "node tools/build.js",
+    "build:dev": "node tools/build.js --no-min",
+    "test": "node tools/build.js && node tools/test.js"
+  },
+  "devDependencies": {
+    "html-minifier-terser": "^7.2.0"
+  }
+}
