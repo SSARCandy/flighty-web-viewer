@@ -1023,10 +1023,26 @@ $('#btnShareMap').addEventListener('click', () => {
     ctx.fillRect(0, 0, 1000, H);
     ctx.drawImage(img, 0, 0, 1000, H);
     URL.revokeObjectURL(url);
-    canvas.toBlob(blob => {
+    canvas.toBlob(async blob => {
+      const filename = `flighty_map_${new Date().toISOString().slice(0,10)}.png`;
+      const ua = navigator.userAgent || '';
+      const isIOS = /iP(hone|ad|od)/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+      const isMobile = isIOS || /Android/i.test(ua);
+      const file = new File([blob], filename, {type: 'image/png'});
+      // iOS / Android: open the native share sheet (save to Photos, send to apps…)
+      if (isMobile && navigator.canShare && navigator.canShare({files: [file]})) {
+        try {
+          await navigator.share({files: [file], title: 'Flighty', text: `${t('tFlights')}: ${fmtInt(st.total)}`});
+          return;
+        } catch (err) {
+          if (err && err.name === 'AbortError') return; // user dismissed the sheet
+          // any other error → fall through to the download below
+        }
+      }
+      // Desktop (and mobile without file-share support): download the PNG
       const a = document.createElement('a');
       a.href = URL.createObjectURL(blob);
-      a.download = `flighty_map_${new Date().toISOString().slice(0,10)}.png`;
+      a.download = filename;
       a.click();
       URL.revokeObjectURL(a.href);
     }, 'image/png');
