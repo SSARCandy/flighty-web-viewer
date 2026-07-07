@@ -816,8 +816,29 @@ addEventListener('scroll',hideTip,{passive:true});
 
 // ---- map ----
 const MAP_W=1000,MAP_H=500;
-const projX=lon=>(lon+180)/360*MAP_W;
+// 中心經線（度）：地圖以此為中心，接縫落在 MAP_C±180。150 ≈ 太平洋置中，
+// 讓跨太平洋航線連續、接縫落在大西洋（僅格陵蘭被切，無機場）。
+const MAP_C=150;
+const projX=lon=>{let d=(lon+180-MAP_C)%360;if(d<0)d+=360;return d/360*MAP_W;};
 const projY=lat=>(90-lat)/180*MAP_H;
+const SEAM_DX=MAP_C/360*MAP_W; // 陸地 tiling 平移量，與 projX 對齊
+// 大圓點列 → 投影，並在畫面接縫（x 跳變 >半寬）處切段、插入邊緣點
+function projectRoute(gc){
+  const segs=[];let cur=[],px=null,py=null;
+  for(const p of gc){
+    const x=projX(p[1]),y=projY(p[0]);
+    if(px!==null&&Math.abs(x-px)>MAP_W/2){
+      const right=x<px;                    // x 由高變低 → 往右出界
+      const xq=right?x+MAP_W:x-MAP_W,edge=right?MAP_W:0;
+      const t=(edge-px)/(xq-px),ye=py+(y-py)*t;
+      cur.push([edge,ye]);segs.push(cur);
+      cur=[[right?0:MAP_W,ye],[x,y]];
+    }else cur.push([x,y]);
+    px=x;py=y;
+  }
+  if(cur.length)segs.push(cur);
+  return segs;
+}
 const SVG_NS='http://www.w3.org/2000/svg';
 
 const mapSvg=$('#map');
@@ -1075,7 +1096,10 @@ function renderMap(st){
   stopPlayback();
   const svg=mapSvg;svg.textContent='';
   const mk=mkSvg;
-  svg.appendChild(mk('path',{d:LAND_PATH,class:'land'}));
+  // 陸地：等距圓柱經度可週期平鋪；畫兩份真正的 path 對齊 MAP_C 中心（接縫無縫接合）。
+  // 共用同一個 LAND_PATH 常數 → 檔案不增大；用真 path 讓 .land 填色一定生效（避免 <use> 不吃 class 填色而變黑）。
+  for(const ox of [-SEAM_DX,MAP_W-SEAM_DX])
+    svg.appendChild(mk('path',{d:LAND_PATH,class:'land',transform:`translate(${ox.toFixed(2)} 0)`}));
   // 先計算所有航線幾何與資料範圍（供動態 viewBox）
   let minX=Infinity,maxX=-Infinity,minY=Infinity,maxY=-Infinity;
   const see=(x,y)=>{if(x<minX)minX=x;if(x>maxX)maxX=x;if(y<minY)minY=y;if(y>maxY)maxY=y;};
@@ -1084,11 +1108,11 @@ function renderMap(st){
     const [p,q]=key.split('-');
     const A=AIRPORTS[p],B=AIRPORTS[q];
     if(!A||!B)continue;
-    const segs=splitAntimeridian(greatCirclePoints([A[0],A[1]],[B[0],B[1]],64));
+    const segs=projectRoute(greatCirclePoints([A[0],A[1]],[B[0],B[1]],64));
     let d='';
     for(const seg of segs){
       d+=seg.map((pt,i)=>{
-        const x=projX(pt[1]),y=projY(pt[0]);see(x,y);
+        const x=pt[0],y=pt[1];see(x,y);
         return (i?'L':'M')+x.toFixed(1)+' '+y.toFixed(1);
       }).join('');
     }
@@ -1177,8 +1201,7 @@ function buildSeq(){
   });
   return flights.map(f=>{
     const A=AIRPORTS[f.from],B=AIRPORTS[f.effectiveTo];
-    const segs=splitAntimeridian(greatCirclePoints([A[0],A[1]],[B[0],B[1]],64))
-      .map(seg=>seg.map(pt=>[projX(pt[1]),projY(pt[0])]));
+    const segs=projectRoute(greatCirclePoints([A[0],A[1]],[B[0],B[1]],64));
     return {f,segs,dist:haversineKm([A[0],A[1]],[B[0],B[1]]),n:segs.reduce((a,s)=>a+s.length,0)};
   });
 }
